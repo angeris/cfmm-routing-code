@@ -15,7 +15,7 @@ def latexify(fig_width=None, fig_height=None, font_size=12, columns=2):
     columns : {1, 2}
     """
 
-    # code adapted from http://www.scipy.org/Cookbook/Matplotlib/LaTeX_Examples
+    # code adapted from https://scipy.github.io/old-wiki/pages/Cookbook/Matplotlib/LaTeX_Examples.html
 
     # Width and max height in inches for IEEE journals taken from
     # computer.org/cms/Computer.org/Journal%20templates/transactions_art_guide.pdf
