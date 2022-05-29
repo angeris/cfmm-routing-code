@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+title: Optimal Routing for Constant Function Market Makers
+message: Please cite this software using these metadata.
+type: software
+authors:
+  - family-names: Angeris
+    name-particle: Guillermo
+    email: angeris@stanford.edu
+    affiliation: Stanford University
+  - family-names: Chitra
+    name-particle: Tarun
+    email: tarun@gauntlet.network
+    affiliation: gauntlet.network
+  - name-particle: Alex
+    family-names: Evans
+    email: aevans@baincapital.com
+    affiliation: Bain Capital
+  - family-names: Boyd
+    name-particle: Stephen
+    email: boyd@stanford.edu
+    affiliation: Stanford University
+identifiers:
+  - type: url
+    value: >-
+      https://stanford.edu/~guillean/papers/cfmm-routing.pdf
+    description: CFMM Routing Paper
+repository-code: 'https://github.com/angeris/cfmm-routing-code'
+keywords:
+  - ' Constant Function Market Makers'
+commit: 65311c1661ee96961a00f2bb07f70013f912d707
+date-released: '2022-01-12'
