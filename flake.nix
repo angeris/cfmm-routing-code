@@ -25,7 +25,8 @@
               zlib.dev
               pkg-config
               (texliveSmall.withPackages
-                (ps: with ps; [ gensymb ]))
+                (ps: with ps; [ gensymb type1cm cm-super ]))
+              ps
             ];
             enterShell = ''
               poetry lock --no-update
