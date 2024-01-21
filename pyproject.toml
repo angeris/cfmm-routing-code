@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "cfmm_routing_code"
+version = "0.0.1"
+description = "CFMM routing"
+authors = []
+
+[tool.poetry.dependencies]
+python = ">=3.11.6, <=3.11.7"
+
+cvxpy = { version = "*", extras = ["all"] }
+numpy = { version = "*", extras = ["all"] }
+matplotlib = { version = "*", extras = ["all"] }
+latexify-py = { version = "*", extras = ["all"] }
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
