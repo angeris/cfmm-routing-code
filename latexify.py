@@ -51,7 +51,7 @@ def latexify(fig_width=None, fig_height=None, font_size=12, columns=2):
               'figure.figsize': [fig_width,fig_height],
               'font.family': 'serif'
     }
-    plt.rc('text.latex', preamble=r'\usepackage{amsmath}')
+    plt.rc('text.latex', preamble=r'\usepackage{gensymb}')
 
     matplotlib.rcParams.update(params)
 
