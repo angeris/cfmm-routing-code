@@ -37,7 +37,10 @@ u_t = np.zeros(len(amounts))
 
 all_values = [np.zeros((len(l), len(amounts))) for l in local_indices]
 
+# cardinality universe tokens
 n = len(global_indices)
+
+# cardinality of set of CFMMs
 m = len(local_indices)
 
 tendered = 0
