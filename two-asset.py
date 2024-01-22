@@ -62,7 +62,7 @@ for j, t in enumerate(amounts):
 
     psi = cp.sum([A_i @ (L - D) for A_i, D, L in zip(A, deltas, lambdas)])
 
-    # Objective is to trade t of asset 1 for a maximum amount of asset 3
+    # Objective is to trade t of asset tendered for a maximum amount of asset received
     obj = cp.Maximize(psi[received])
 
     # Reserves after trade
@@ -93,7 +93,7 @@ for j, t in enumerate(amounts):
     for k in range(m):
         all_values[k][:, j] = lambdas[k].value - deltas[k].value
 
-    print(f"Total liquidated value: {psi.value[2]}")
+    print(f"Total received value: {psi.value[received]}")
     for i in range(5):
         print(f"Market {i}, delta: {deltas[i].value}, lambda: {lambdas[i].value}")
 
