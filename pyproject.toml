@@ -15,3 +15,6 @@ latexify-py = { version = "*", extras = ["all"] }
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.dev-dependencies]
+black = { version = "*", extras = ["all"] }

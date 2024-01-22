@@ -31,23 +31,20 @@ fees = np.array([
     .99
 ])
 
-amounts = np.linspace(0, 50)
+amounts = np.linspace(5, 5)
 
 u_t = np.zeros(len(amounts))
 
 all_values = [np.zeros((len(l), len(amounts))) for l in local_indices]
 
+n = len(global_indices)
+m = len(local_indices)
+
 for j, t in enumerate(amounts):
-    current_assets = np.array([
-        t,
-        0,
-        0,
-    ])
+    current_assets = np.full(n, 0)
+    current_assets[0] = t
 
     # Build local-global matrices
-    n = len(global_indices)
-    m = len(local_indices)
-
     A = []
     for l in local_indices:
         n_i = len(l)
@@ -88,9 +85,9 @@ for j, t in enumerate(amounts):
 
     # Set up and solve problem
     prob = cp.Problem(obj, cons)
-    prob.solve()
+    prob.solve(verbose = True, solver = cp.ECOS)
 
-    for k in range(len(local_indices)):
+    for k in range(m):
         all_values[k][:, j] = lambdas[k].value - deltas[k].value
 
     print(f"Total liquidated value: {psi.value[2]}")
@@ -100,7 +97,7 @@ for j, t in enumerate(amounts):
     u_t[j] = obj.value
 
 latexify(fig_width=6, fig_height=3.5)
-for k in range(len(local_indices)):
+for k in range(m):
     curr_value = all_values[k]
     for i in range(curr_value.shape[0]):
         coin_out = curr_value[i, :]
