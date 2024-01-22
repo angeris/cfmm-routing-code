@@ -9,15 +9,19 @@ import cvxpy as cp
 
 def scale(max_range, input_error, input, case):
     """_summary
-    0. start with asset_
-    1. go next reserve, if number is higher than range
-    2. reduce to range
-    3. if input is of same asset, downscale it too
-    4. if down scaling leads to large input error, fail
-    5. consider largest pool to be stable pool, cap all pools until range
-    5. if down scaling leads to pools empty, set (delta/lambda) pool to zero
-    6. add downscale factor to the output   
-    7. repeat 1
+    0. start with traded asset
+    1. find all reserves, find biggest downscale factor and downscale all reserves
+    2. in case of zero pools, set delta/lambda pool to zero (no trade over it)    
+    3. downscale input according biggest downscale factor
+    4. if down scaling leads to large input error (near zero), 
+    5. consider largest pool to be stable pool, cap it until input is reasonably downscaled
+    6. ASSUMPTION: user wants to trade an asset if there is at least one big relatively stable pool
+    7. BECAUSE if there is so big difference in input pool and output, it would be relatively table and reduced amount
+    8. ORACLE: if there is oracle, consider checking stability via its 
+    8. go over other assets and downscale
+    9. ISSUE: intermediate pools can be not enough downscale, the only option is to find oracle for intermediate pools
+    10. if there is oracle (in oracle_scale), than use price of input token amount to pools token amount - and consider it is stable
+    11. oracle can be external, or it can be found in data (find all routes from input token to output tokens of length N without cycles, and swap RFQ amounts with fees until getting some data)
     Returns new problem case to solve and downscale factors
     """
     pass
@@ -29,7 +33,6 @@ def oracle_scale(max_range, input_error, input, case):
         But how we know if pools can be capped if they are not traded with tendered directly?
         We need oracle telling if pools can be stable for given swap, assuming there is not infinite arbitrage.
         Oracle tells price of any token to on common shared token.
-        
     """
     pass
 
