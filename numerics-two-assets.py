@@ -6,6 +6,12 @@ from dataclasses import dataclass
 import numpy as np
 import cvxpy as cp
 
+def iterate_scale():
+    """
+    If solving failed, try scale down once more,
+    Alert warning        
+    """
+    pass
 
 def scale(max_range, input_error, input, case):
     """_summary
