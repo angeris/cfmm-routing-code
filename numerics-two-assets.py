@@ -1,13 +1,30 @@
+# 
 # 1. small input big pools
 # 2. small inputs, some pools are big and some are small
 # 3. big input, all small pools
 # 4. big input, some pools are big and some small
 
 
+
 from dataclasses import dataclass
 import numpy as np
 import cvxpy as cp
 
+
+
+def downscale(max_range, input, case):
+    """_summary_
+    1. go next reserve, if number is higher than range
+    2. reduce to range
+    3. if input is of same asset, downscale it too
+    4. if down scaling leads to zero input, error
+    5. add downscale factor to the output   
+    6. repeat 1
+    """
+    pass
+
+def scaleback(scale_factors, solution):
+    pass
 
 @dataclass(init=True)
 class Case:
