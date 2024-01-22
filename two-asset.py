@@ -40,9 +40,12 @@ all_values = [np.zeros((len(l), len(amounts))) for l in local_indices]
 n = len(global_indices)
 m = len(local_indices)
 
+tendered = 0
+received = 2
+
 for j, t in enumerate(amounts):
     current_assets = np.full(n, 0)
-    current_assets[0] = t
+    current_assets[tendered] = t
 
     # Build local-global matrices
     A = []
@@ -50,7 +53,7 @@ for j, t in enumerate(amounts):
         n_i = len(l)
         A_i = np.zeros((n, n_i))
         for i, idx in enumerate(l):
-            A_i[idx, i] = 1
+            A_i[idx, i] = 1      
         A.append(A_i)
 
     # Build variables
@@ -60,7 +63,7 @@ for j, t in enumerate(amounts):
     psi = cp.sum([A_i @ (L - D) for A_i, D, L in zip(A, deltas, lambdas)])
 
     # Objective is to trade t of asset 1 for a maximum amount of asset 3
-    obj = cp.Maximize(psi[2])
+    obj = cp.Maximize(psi[received])
 
     # Reserves after trade
     new_reserves = [R + gamma_i*D - L for R, gamma_i, D, L in zip(reserves, fees, deltas, lambdas)]
@@ -85,7 +88,7 @@ for j, t in enumerate(amounts):
 
     # Set up and solve problem
     prob = cp.Problem(obj, cons)
-    prob.solve(verbose = True, solver = cp.ECOS)
+    prob.solve(verbose = False, solver = cp.ECOS)
 
     for k in range(m):
         all_values[k][:, j] = lambdas[k].value - deltas[k].value
