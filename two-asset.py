@@ -31,7 +31,7 @@ fees = np.array([
     .99
 ])
 
-amounts = np.linspace(5, 5)
+amounts = np.linspace(0, 50)
 
 u_t = np.zeros(len(amounts))
 
