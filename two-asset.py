@@ -97,7 +97,7 @@ for j, t in enumerate(amounts):
         all_values[k][:, j] = lambdas[k].value - deltas[k].value
 
     print(f"Total received value: {psi.value[received]}")
-    for i in range(5):
+    for i in range(m):
         print(f"Market {i}, delta: {deltas[i].value}, lambda: {lambdas[i].value}")
 
     u_t[j] = obj.value
