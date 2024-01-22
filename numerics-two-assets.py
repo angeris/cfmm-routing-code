@@ -1,9 +1,5 @@
-# 
-# 1. small input big pools
-# 2. small inputs, some pools are big and some are small
-# 3. big input, all small pools
-# 4. big input, some pools are big and some small
-
+# reserves and amounts can be big or small
+# thats leads to numeric infeasibility
 
 
 from dataclasses import dataclass
@@ -11,15 +7,29 @@ import numpy as np
 import cvxpy as cp
 
 
-
-def downscale(max_range, input, case):
-    """_summary_
+def scale(max_range, input_error, input, case):
+    """_summary
+    0. start with asset_
     1. go next reserve, if number is higher than range
     2. reduce to range
     3. if input is of same asset, downscale it too
-    4. if down scaling leads to zero input, error
-    5. add downscale factor to the output   
-    6. repeat 1
+    4. if down scaling leads to large input error, fail
+    5. consider largest pool to be stable pool, cap all pools until range
+    5. if down scaling leads to pools empty, set (delta/lambda) pool to zero
+    6. add downscale factor to the output   
+    7. repeat 1
+    Returns new problem case to solve and downscale factors
+    """
+    pass
+
+def oracle_scale(max_range, input_error, input, case):
+    """_summary_
+        If input is reasonable, but difference between input and reservers is huge
+        We need to cap reservers and set them to be `stable pools`
+        But how we know if pools can be capped if they are not traded with tendered directly?
+        We need oracle telling if pools can be stable for given swap, assuming there is not infinite arbitrage.
+        Oracle tells price of any token to on common shared token.
+        
     """
     pass
 
