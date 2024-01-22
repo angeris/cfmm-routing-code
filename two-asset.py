@@ -91,7 +91,7 @@ for j, t in enumerate(amounts):
 
     # Set up and solve problem
     prob = cp.Problem(obj, cons)
-    prob.solve(verbose = False, solver = cp.ECOS)
+    prob.solve(verbose = False, solver = cp.SCIP)
 
     for k in range(m):
         all_values[k][:, j] = lambdas[k].value - deltas[k].value
