@@ -96,9 +96,17 @@ def scale(tendered: int, amount : float,  case: Case, max_reserve : float = 10**
     new_reserves = case.reserves.copy()
     maximal_reserves = case.maximal_reserves
     
+    new_amount = amount
     factors = np.ones(case.n)
+    new_venues = case.venues.copy()
     for i, maximal_reserve in enumerate(maximal_reserves):
         scale = maximal_reserve / max_reserve
+        if i == tendered:
+            new_amount = amount / scale
+            if new_amount < min_input_range:
+                print(f"warning:: input amount is to small against reserve")
+                print(f"warning:: input amount is to small against will reduce reserver to good scale and stable pool")
+            
         if scale > 1:
             factors[i] = scale
             new_reserves[i] = new_reserves[i] / scale
