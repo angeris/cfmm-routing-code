@@ -2,9 +2,11 @@
 # thats leads to numeric infeasibility
 # so need to scale down, calculated and scale back
 
+import copy
 from dataclasses import dataclass
 import numpy as np
 import cvxpy as cp
+
 
 
 @dataclass(init=True)
@@ -51,21 +53,19 @@ class Case:
     def m(self):
         return len(self.local_indices)
     
-    amounts = np.linspace(0, 50)
     
     tendered = 0
     received = 2
     
     @property
-    def maximal_reserves(self):
+    def maximal_reserves(self) -> list[tuple[int,int]]:
         """_summary_
-            Get maximal reserves for each token
+            Get maximal reserves pool and position for each token
         """
         maximal_reserves = np.zeros(case.n)
         for i, local in enumerate(case.local_indices):
             for j, token in enumerate(local):
-                reserve =  case.reserves[i,j]
-                maximal_reserves[token] = max(maximal_reserves[token], reserve)
+                maximal_reserves[token] = (i, j)
         return maximal_reserves
 
 
@@ -76,66 +76,70 @@ def iterate_scale():
     """
     pass
 
-def scale(tendered: int, amount : float,  case: Case, max_reserve_limit : float = 10**12, min_input_limit : float = 0.00001 ):
+
+# oracle less solver oriented to find likely working route
+# may omit small pools which has some small reservers which has some arbitrage
+# idea is user wants to trade/route, only after arbitrage
+# 
+# Without oracle if input token is huge (like BTC) and out small (like SHIB), can numeric unstable in internal hops.
+# Possible solutions after downscale:
+# 1. find all routes for depth first N hops(no cycles by input/output/pool key no double visit) without fees used to target token
+# 2. those we will find if route exists at all btw
+# 3. it will give us ability to eliminate some pools (not in route)
+# 4. and also will give us price oracle of each input token to output
+# 5. decide what spot price to use (oracle decision)
+# 6. if some token in limit of downscale, but price is way less/more our token, down/up scale each such token (inside non oracle code)
+# 7. can do 5-6 if external oracle data provided (usually normalization to some stable token) 
+
+# Oracalized approach eliminates less pools numerically small or caps big pools, so better for arbitrage.
+def solve_first_scale(amount: int, case: Case, max_reserve_limit : float = 10**12, window_limit : int = 16):
     """_summary
-    0. start with traded asset
-    1. find all reserves, find biggest downscale factor and downscale all reserves
-    2. in case of zero pools, set delta/lambda pool to zero (no trade over it)    
-    3. downscale input according biggest downscale factor
-    4. if down scaling leads to large input error (near zero), 
-    5. consider largest pool to be stable pool, cap it until input is reasonably downscaled
-    6. ASSUMPTION: user wants to trade an asset if there is at least one big relatively stable pool
-    7. BECAUSE if there is so big difference in input pool and output, it would be relatively table and reduced amount
-    8. ORACLE: if there is oracle, consider checking stability via its 
-    8. go over other assets and downscale
-    9. ISSUE: intermediate pools can be not enough downscale, the only option is to find oracle for intermediate pools
-    10. if there is oracle (in oracle_scale), than use price of input token amount to pools token amount - and consider it is stable
-    11. oracle can be external, or it can be found in data (find all routes from input token to output tokens of length N without cycles, and swap RFQ amounts with fees until getting some data)
-    Returns new problem case to solve and downscale factors
+    Returns new problem case to solve downscaled. 
+    New problem and old problem can be used to scale back solution
     """
-    new_reserves = case.reserves.copy()
-    maximal_reserves = case.maximal_reserves
-    
+    assert(window_limit > 0)
+    new_case = copy.deepcopy(case)    
+    min_io_limit = max_reserve_limit / 10**window_limit
     new_amount = amount
-    factors = np.ones(case.n)
-    new_venues = case.venues.copy()
-    for i, maximal_reserve in enumerate(maximal_reserves):
-        if maximal_reserve > max_reserve_limit:            
-            scale = maximal_reserve / max_reserve_limit
-            if i == tendered:
-                new_amount = amount / scale
-                if new_amount < min_input_limit:
-                    print(f"warning:: input amount is to small against reserve")
-                    print(f"warning:: input amount is to small against will reduce reserver to good scale and stable pool")
-                    raise NotImplementedError("here should reduce all assets in pool with this asset")
-                    # but any paired asset also should made stable, so recursive
-                    # part = (new_amount /  min_input_limit )
-                    # maximal_reserve = maximal_reserve * part
-                    # maximal_reserves[i] = maximal_reserve      i              
-                    # set to stable pool                
-            factors[i] = scale
-            for j, token in enumerate(case.local_indices[i]):
-                new_reserves[i,j] / scale
-            
-            if i == tendered:
-                factors[i] = scale
-                amount = amount / scale
-                if amount < min_input_limit: 
-    pass
+    # amount number too small and pools are big, assume pools are stable for that amount
+    cfmm, local = new_case.maximal_reserves[case.tendered]
+    tendered_max_reserve = new_case.reserves[cfmm][local] 
+    if tendered_max_reserve > max_reserve_limit:
+        scale = tendered_max_reserve / max_reserve_limit
+        if scale > 1:
+            new_amount = amount / scale
+            if new_amount < min_io_limit:
+                new_amount = amount # it will not be downscaled
+                for i, tokens in enumerate(new_case.local_indices):
+                    if any(token == case.tendered for token in tokens):
+                        # reduce reserves factor
+                        new_case.reserves[i] = case.reserves[i] / scale       
+                        # really better to make stable pools here                 
+    
+    # so just downscale all big pools
+    for r, i, j in enumerate(new_case.maximal_reserves):
+        max_reserve = new_case.reserves[i][j]
+        if max_reserve > max_reserve_limit:
+            scale = max_reserve / max_reserve_limit
+            for k, token in enumerate(case.local_indices):
+                for p, t,  in enumerate(token):
+                    if r == t:
+                        # all reservers of specific token downscaled
+                        new_case.reserves[k, p] = case.reserves[k, p] / scale
+                        break
+    
+    # if some reservers are numerically small, skip these pools
+    for i, reserves in enumerate(new_case.reserves):
+        if any(reserve < min_io_limit for reserve in reserves):
+             new_case.reserves[i] = np.zeros(len(reserves))
+             new_case.venues[i] = 'skip'
+             
+    return new_case, new_amount
 
-def oracle_scale(max_range, input_error, input, case):
+def scaleback(solution_amount, new_amount, new_case, old_case ):
     """_summary_
-        If input is reasonable, but difference between input and reservers is huge
-        We need to cap reservers and set them to be `stable pools`
-        But how we know if pools can be capped if they are not traded with tendered directly?
-        We need oracle telling if pools can be stable for given swap, assuming there is not infinite arbitrage.
-        Oracle tells price of any token to on common shared token.
-    """
-    pass
-
-def scaleback(scale_factors, solution):
-    """_summary_
-        After solution found, we need to scale back to original values
+        After solution found, we need to scale back to original values.
+        Works regardless of what strategy was used to scale down
     """
     pass
 
@@ -158,6 +162,7 @@ all_big.tendered = 0
 all_big.received = 1
 
 
+amounts = amounts_from_paper = np.linspace(0, 50)
 case = all_big
 
 for _j, t in enumerate(case.amounts):
@@ -196,7 +201,8 @@ for _j, t in enumerate(case.amounts):
             cons.append(cp.sum(new_reserves[i]) >= cp.sum(case.reserves[i]))
             cons.append(new_reserves[i] >= 0)
         else:
-            raise ValueError(f"Unknown venue {venue}")
+            cons.append(deltas[i] == 0)
+            cons.append(lambdas[i] == 0)
     
     # Allow all assets at hand to be traded
     cons.append(psi + current_assets >= 0)
