@@ -76,7 +76,7 @@ def iterate_scale():
     """
     pass
 
-def scale(tendered: int, amount : float,  case: Case, max_reserve : float = 10**12, min_input_range : float = 0.00001 ):
+def scale(tendered: int, amount : float,  case: Case, max_reserve_limit : float = 10**12, min_input_limit : float = 0.00001 ):
     """_summary
     0. start with traded asset
     1. find all reserves, find biggest downscale factor and downscale all reserves
@@ -100,20 +100,27 @@ def scale(tendered: int, amount : float,  case: Case, max_reserve : float = 10**
     factors = np.ones(case.n)
     new_venues = case.venues.copy()
     for i, maximal_reserve in enumerate(maximal_reserves):
-        scale = maximal_reserve / max_reserve
-        if i == tendered:
-            new_amount = amount / scale
-            if new_amount < min_input_range:
-                print(f"warning:: input amount is to small against reserve")
-                print(f"warning:: input amount is to small against will reduce reserver to good scale and stable pool")
+        if maximal_reserve > max_reserve_limit:            
+            scale = maximal_reserve / max_reserve_limit
+            if i == tendered:
+                new_amount = amount / scale
+                if new_amount < min_input_limit:
+                    print(f"warning:: input amount is to small against reserve")
+                    print(f"warning:: input amount is to small against will reduce reserver to good scale and stable pool")
+                    raise NotImplementedError("here should reduce all assets in pool with this asset")
+                    # but any paired asset also should made stable, so recursive
+                    # part = (new_amount /  min_input_limit )
+                    # maximal_reserve = maximal_reserve * part
+                    # maximal_reserves[i] = maximal_reserve      i              
+                    # set to stable pool                
+            factors[i] = scale
+            for j, token in enumerate(case.local_indices[i]):
+                new_reserves[i,j] / scale
             
-        if scale > 1:
-            factors[i] = scale
-            new_reserves[i] = new_reserves[i] / scale
-        if i == tendered:
-            factors[i] = scale
-            amount = amount / scale
-            if amount < min_input_range: 
+            if i == tendered:
+                factors[i] = scale
+                amount = amount / scale
+                if amount < min_input_limit: 
     pass
 
 def oracle_scale(max_range, input_error, input, case):
