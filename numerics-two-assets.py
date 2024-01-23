@@ -57,7 +57,16 @@ class Case:
     received = 2
     
     @property
-    def maxima
+    def maximal_reserves(self):
+        """_summary_
+            Get maximal reserves for each token
+        """
+        maximal_reserves = np.zeros(case.n)
+        for i, local in enumerate(case.local_indices):
+            for j, token in enumerate(local):
+                reserve =  case.reserves[i,j]
+                maximal_reserves[token] = max(maximal_reserves[token], reserve)
+        return maximal_reserves
 
 
 def iterate_scale():
@@ -67,7 +76,7 @@ def iterate_scale():
     """
     pass
 
-def scale(tendered: int, amount : float,  case: Case, max_range : float = 10**12):
+def scale(tendered: int, amount : float,  case: Case, max_reserve : float = 10**12, min_input_range : float = 0.00001 ):
     """_summary
     0. start with traded asset
     1. find all reserves, find biggest downscale factor and downscale all reserves
@@ -84,19 +93,19 @@ def scale(tendered: int, amount : float,  case: Case, max_range : float = 10**12
     11. oracle can be external, or it can be found in data (find all routes from input token to output tokens of length N without cycles, and swap RFQ amounts with fees until getting some data)
     Returns new problem case to solve and downscale factors
     """
-    factors = np.ones(case.n)
     new_reserves = case.reserves.copy()
+    maximal_reserves = case.maximal_reserves
     
-    # get maximal reserves for each token
-    maximal_reserves = np.zeros(case.n)
-    for i, local in enumerate(case.local_indices):
-        for j, token in enumerate(local):
-            reserve =  case.reserves[i,j]
-            maximal_reserves[token] = max(maximal_reserves[token], reserve)
-    
-    
-    
-        
+    factors = np.ones(case.n)
+    for i, maximal_reserve in enumerate(maximal_reserves):
+        scale = maximal_reserve / max_reserve
+        if scale > 1:
+            factors[i] = scale
+            new_reserves[i] = new_reserves[i] / scale
+        if i == tendered:
+            factors[i] = scale
+            amount = amount / scale
+            if amount < min_input_range: 
     pass
 
 def oracle_scale(max_range, input_error, input, case):
