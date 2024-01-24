@@ -1,6 +1,11 @@
-# reserves and amounts can be big and/or small
-# thats leads to numeric infeasibility
-# so need to scale down, calculated and scale back
+# Reserves and amounts can be big and/or small
+# Thats leads to numeric infeasibility. Try to run two-assets.py with big numbers.
+# We should scale in amounts and scale out.
+# There are are two approaches:
+# - find out reason of infeasibility and tune relevant constraints/parameter
+# - scale in using raw limits, cap reservers against small tendered, and scaling in using oracle (including inner)
+# This solution going second way. 
+# For more context this overview is nice https://www.youtube.com/watch?v=hYBAqcx0H18
 
 import copy
 from dataclasses import dataclass, field
@@ -14,7 +19,11 @@ class Case:
     """
 
     global_indices: list[int]
+    
     local_indices: list[list[int]]
+    """_summary_
+        List pools with list of its assets
+    """
 
     reserves: list[list[float]]
 
@@ -54,7 +63,6 @@ class Case:
         assert not any(x is None for x in maximal_reserves)
         return maximal_reserves
 
-
 def create_paper_case():
     return Case(
         list(range(3)),
@@ -88,57 +96,62 @@ def test_case_sanity():
     assert r[2] == (3, 1)
 
 
-def inner_oracle(case: Case):
+def all_routes(case: Case, max_depth : int = 10):
     """_summary_
-    Builds oracle from existing data to window delta/lambda in reasonable numeric range 
+    Builds oracle from existing data to tendered asset.
     
-    Finds all routes of `max_depth`. 
-    If visited same pool with same token before, abort.    
-    """
-    def next(case: Case, path: list[tuple(int, int)], current: int, max_depth : int, visited: set[tuple[int, int]], paths : list[tuple[list[tuple(int, int)], int, str]]):
-        if len(path) > max_depth:
-            paths.append((path, current, "max depth"))
-            return 
-        # we were in this pool with same input asset
-        if len(visited) > 0 and len(path) > 0 and visited.contains((current, path[-1][1])):
-            path.append((path, current, "final"))
-            return
+    Finds all routes up `max_depth`.
             
-        for pool, tokens in enumerate(case.local_indices[current]):
-            if any(t == current for t in tokens):                
-                for t in tokens:
-                    if t != current:
-                        path = copy.deepcopy(path) 
-                        path.append((current, pool))
-                        next(case, path, t, max_depth+1)
-    result = []
-    next(case, [], case.tendered, 0, set(), result)
-    return result
+    Improvement can be if both amount obtained and reserve before are larger than on this step, in this case stop routing over specific asset regardless of pool.
+    Assuming that less hops (larger amount after fees) and large pools are optimal.
+    """
+    def next(case: Case, path: list[tuple[int, int]], tendered: int, max_depth : int, results : list[tuple[list[tuple[int, int]], int, str]]):
+        if len(path) > max_depth:            
+            return            
+        for cfmm, tokens in enumerate(case.local_indices):
+            if any(x == tendered for x in tokens):                
+                for received in tokens:
+                    if received != tendered:
+                        # we started from this, no need to jump into it in any pool - we are oracle, not arbitrage
+                        if case.tendered != received:
+                            n = (tendered, cfmm, received)
+                            if not n in path: 
+                                new_path = copy.deepcopy(path) 
+                                new_path.append(n)
+                                results.append(new_path)
+                                next(case, new_path, received, max_depth, results)
+    results = []
+    next(case, [], case.tendered, max_depth, results)
+    return results
 
-                
-# Solver oriented to find likely working route
-# may omit small pools which has some small reservers which has some arbitrage
-# idea is user wants to trade/route, only after arbitrage
-#
-# Without oracle if input token is huge (like BTC) and out small (like SHIB), can numeric unstable in internal hops.
-# Possible solutions after downscale with Oracle:
-# 1. 
-# 2. those we will find if route exists at all btw
-# 3. it will give us ability to eliminate some pools (not in route)
-# 4. and also will give us price oracle of each input token to output
-# 5. decide what spot price to use (oracle decision)
-# 6. if some token in limit of downscale, but price is way less/more our token, down/up scale each such token (inside non oracle code)
-# 7. can do 5-6 if external oracle data provided (usually normalization to some stable token)
-# Oracalized approach eliminates less pools numerically small or caps big pools, so better for arbitrage.
-# Can use external oracle as option.
-# Actually it allows to put all values into some window range
-# 
-# Alternative approach, is to run solve, use failure result to find where to downscale.
-def scale(
+def test_paper_routes():
+    case = create_paper_case()
+    routes = all_routes(case)
+    print(len(routes))
+    for route in routes:
+         print("", route, "\n")
+
+def inner_oracle(case: Case):
+    routes = all_routes(case)
+    oracles: list[float : None] = [None] * case.n
+    for i, o in enumerate(oracles):
+        if i == case.tendered:            
+            oracles[i] = 1
+        elif o is None:
+          for route in routes:
+            
+            pass
+              
+    return oracles  
+         
+# Scale in oriented to find likely working route.
+# May omit small pools which has some small reserves which has some arbitrage.
+# Trade/route first, arbitrage second.
+def scale_in(
     amount: int, case: Case, max_reserve_limit: float = 10**12, window_limit: int = 16
 ):
     """_summary
-    Returns new problem case to solve downscaled.
+    Returns new problem case to solve in scale.
     New problem and old problem can be used to scale back solution
     """
     assert window_limit > 0
@@ -185,7 +198,7 @@ def scale(
 
     return case, new_amount
 
-def scaleback(solution_amount: float, scale : list[float], token : int):
+def scale_out(solution_amount: float, scale : list[float], token : int):
     """_summary_
     After solution found, we need to scale back to original values.
     Works regardless of what strategy was used to scale down
@@ -255,7 +268,7 @@ def test_scaling_when_there_is_none():
 
     case = create_paper_case()
     amount = 5
-    new_case, _new_amount = scale(amount, case)
+    new_case, _new_amount = scale_in(amount, case)
     r = dd.DeepDiff(case, new_case, ignore_order=False)
     assert len(r.items()) == 0
 
@@ -266,7 +279,7 @@ def test_scaling_big():
     case = create_simple_big_case()
 
     def check(case, amount, changed_pool, changed_amount, range = 10**12):
-        new_case, new_amount = scale(amount, case, range)
+        new_case, new_amount = scale_in(amount, case, range)
         r = dd.DeepDiff(case, new_case, ignore_order=False)
         if changed_pool:
             print(r.items())
@@ -279,7 +292,7 @@ def test_scaling_big():
             print("new vs old", new_amount, amount)
         else:
             assert new_amount == amount         
-        assert scaleback(new_amount, new_case.scale, new_case.tendered) == amount
+        assert scale_out(new_amount, new_case.scale, new_case.tendered) == amount
         
         print("\n")         
         
@@ -303,7 +316,7 @@ amounts = big_amounts
 
 def main():
     for _j, t in enumerate(amounts):
-        case, t = scale(t, original_case)
+        case, t = scale_in(t, original_case)
 
         current_assets = np.full(case.n, 0)
         current_assets[case.tendered] = t
@@ -360,7 +373,7 @@ def main():
         if prob.status == cp.INFEASIBLE:
             raise Exception(f"Problem status {prob.status}")
 
-        print(f"Total received value: {scaleback(psi.value[case.received], case.scale, case.received)}")
+        print(f"Total received value: {scale_out(psi.value[case.received], case.scale, case.received)}")
         for i in range(case.m):
             print(f"Market {i}, delta: {deltas[i].value}, lambda: {lambdas[i].value}")
 
