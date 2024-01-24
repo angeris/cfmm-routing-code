@@ -186,7 +186,7 @@ def test_paper_oracles():
 # May omit small pools which has some small reserves which has some arbitrage.
 # Trade/route first, arbitrage second.
 def scale_in(
-    amount: int, case: Case, max_reserve_limit: float = 10**12, window_limit: int = 16
+    amount: int, case: Case, max_reserve_limit: float = 10**8, window_limit: int = 14
 ):
     """_summary
     Returns new problem case to solve in scale.
@@ -293,25 +293,6 @@ def create_simple_big_case():
     )
 
 
-def create_big_price_range():
-    return Case(
-        list(range(3)),
-        [
-            [0, 1],
-            [1, 2],
-        ],
-        list(map(np.array, [
-            [10**2, 10**12],
-            [10**12, 10**22],
-            ])),
-        ["Uniswap", "Uniswap"],
-        np.array([1.0, 1.0]),
-        0,
-        2,
-        [1] * 3,
-    )
-
-
 big_amounts = [10**6, 10**12]
 
 
@@ -358,9 +339,27 @@ def test_scaling_big():
     case = create_big_case_with_small_pool()
     check(case, 10**8, True, True, 10**6)
 
+def create_big_price_range():
+    return Case(
+        list(range(3)),
+        [
+            [0, 1],
+            [1, 2],
+        ],
+        list(map(np.array, [
+            [10**4, 10**12],
+            [10**12, 10**12],
+            ])),
+        ["Uniswap", "Uniswap"],
+        np.array([1.0, 1.0]),
+        0,
+        2,
+        [1] * 3,
+    )
+
 
 original_case = create_big_price_range()
-amounts = [10**6]
+amounts = [10**3]
 # original_case = create_simple_big_case()
 # amounts = big_amounts
 # original_case = from_paper
@@ -370,7 +369,7 @@ amounts = [10**6]
 def main():
     for _j, t in enumerate(amounts):
         case, t = scale_in(t, original_case)
-
+        print(case)
         current_assets = np.full(case.n, 0)
         current_assets[case.tendered] = t
 
