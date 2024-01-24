@@ -62,20 +62,22 @@ class Case:
         """_summary_
             Get maximal reserves pool and position for each token
         """
-        maximal_reserves = np.zeros(case.n)
-        for i, local in enumerate(case.local_indices):
+        maximal_reserves = [None] * self.n
+        for i, local in enumerate(self.local_indices):
             for j, token in enumerate(local):
-                maximal_reserves[token] = (i, j)
+                current = maximal_reserves[token] 
+                if current is None or self.reserves[i][j] > self.reserves[current[0]][current[1]]: 
+                    maximal_reserves[token] = (i, j)
+        assert(not any(x is None for x in maximal_reserves))
         return maximal_reserves
 
 
-def iterate_scale():
-    """
-    If solving failed, try scale down once more,
-    Alert warning        
-    """
-    pass
-
+def test_case_sanity():
+    case = Case()
+    r = case.maximal_reserves
+    assert(r[0] == (3, 0))
+    assert(r[1] == (1, 1))
+    assert(r[2] == (3, 1))
 
 # oracle less solver oriented to find likely working route
 # may omit small pools which has some small reservers which has some arbitrage
@@ -92,7 +94,7 @@ def iterate_scale():
 # 7. can do 5-6 if external oracle data provided (usually normalization to some stable token) 
 
 # Oracalized approach eliminates less pools numerically small or caps big pools, so better for arbitrage.
-def solve_first_scale(amount: int, case: Case, max_reserve_limit : float = 10**12, window_limit : int = 16):
+def scale(amount: int, case: Case, max_reserve_limit : float = 10**12, window_limit : int = 16):
     """_summary
     Returns new problem case to solve downscaled. 
     New problem and old problem can be used to scale back solution
@@ -117,7 +119,7 @@ def solve_first_scale(amount: int, case: Case, max_reserve_limit : float = 10**1
                         # really better to make stable pools here                 
     
     # so just downscale all big pools
-    for r, i, j in enumerate(new_case.maximal_reserves):
+    for r, (i, j) in enumerate(new_case.maximal_reserves):
         max_reserve = new_case.reserves[i][j]
         if max_reserve > max_reserve_limit:
             scale = max_reserve / max_reserve_limit
@@ -161,11 +163,18 @@ all_big.amounts = [10**6]
 all_big.tendered = 0
 all_big.received = 1
 
+big_amounts = [10**6, 10**12]
 
-amounts = amounts_from_paper = np.linspace(0, 50)
-case = all_big
+amounts_from_paper = np.linspace(0, 50)
 
-for _j, t in enumerate(case.amounts):
+# case = all_big
+# amounts = big_amounts 
+original_case = from_paper
+amounts = amounts_from_paper
+
+for _j, t in enumerate(amounts):
+    case, t = scale(t, original_case)
+
     current_assets = np.full(case.n, 0)
     current_assets[case.tendered] = t
 
