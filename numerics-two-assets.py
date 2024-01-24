@@ -92,7 +92,9 @@ def inner_oracle(case: Case):
     """_summary_
     Builds oracle from existing data to window delta/lambda in reasonable numeric range 
     """
-    def next(case: Case, path: list[tuple(int, int, int)], max_depth : int):
+    def next(case: Case, path: list[tuple(int, int)], current: int, max_depth : int):
+        if len(path) > max_depth:
+            return (path, current, "max depth")
         
 
 # oracle less solver oriented to find likely working route
