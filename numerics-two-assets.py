@@ -162,6 +162,7 @@ def scaleback(solution_amount: float, scale : list[float], token : int):
     After solution found, we need to scale back to original values.
     Works regardless of what strategy was used to scale down
     """
+    print(scale)
     return solution_amount * scale[token]
 
 
@@ -192,7 +193,7 @@ def create_simple_big_case():
     return Case(
         list(range(2)),
         [[0, 1]],
-        list(map(np.array, [[10**18, 10**12]])),
+        list(map(np.array, [[10**18, 10**13]])),
         ["Uniswap"],
         np.array([0.99]),
         0,
@@ -249,10 +250,10 @@ def test_scaling_big():
     check(case, 10**8, True, True, 10**6)
 
 
-# case = all_big
-# amounts = big_amounts
-original_case = from_paper
-amounts = amounts_from_paper
+original_case = create_simple_big_case()
+amounts = big_amounts
+# original_case = from_paper
+# amounts = amounts_from_paper
 
 
 def main():
@@ -314,7 +315,7 @@ def main():
         if prob.status == cp.INFEASIBLE:
             raise Exception(f"Problem status {prob.status}")
 
-        print(f"Total received value: {psi.value[case.received]}")
+        print(f"Total received value: {scaleback(psi.value[case.received], case.scale, case.received)}")
         for i in range(case.m):
             print(f"Market {i}, delta: {deltas[i].value}, lambda: {lambdas[i].value}")
 
