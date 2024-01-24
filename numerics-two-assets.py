@@ -152,12 +152,13 @@ def scale(
 
     return case, new_amount
 
-
-def scaleback(solution_amount, new_amount, new_case, old_case):
+def scaleback(solution_amount: float, new_amount: float, new_case : Case, old_case: Case):
     """_summary_
     After solution found, we need to scale back to original values.
     Works regardless of what strategy was used to scale down
     """
+    assert new_case.tendered == old_case.tendered
+    assert new_case.received == old_case.received
 
     return solution_amount
 
@@ -194,7 +195,6 @@ def create_simple_big_case():
         0,
         1,
     )
-    
 
 
 big_amounts = [10**6, 10**12]
