@@ -19,3 +19,4 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.dev-dependencies]
 black = { version = "*", extras = ["all"] }
 pytest = { version = "*", extras = ["all"] }
+deepdiff = { version = "*", extras = ["all"] }
