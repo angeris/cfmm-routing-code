@@ -195,7 +195,17 @@ def test_scaling_big():
     import deepdiff as dd
 
     case = create_simple_big_case()
+
+    # downscale just pool
     amount = 10**7
+    new_case, new_amount = scale(amount, case)
+    r = dd.DeepDiff(case, new_case, ignore_order=False)
+    assert len(r.items()) != 0
+    print(r.items())
+    print("new vs old", new_amount, amount)
+
+    # cap pool
+    amount = 10**1
     new_case, new_amount = scale(amount, case)
     r = dd.DeepDiff(case, new_case, ignore_order=False)
     assert len(r.items()) != 0
