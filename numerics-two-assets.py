@@ -105,7 +105,7 @@ def all_routes(case: Case, max_depth : int = 10):
     Improvement can be if both amount obtained and reserve before are larger than on this step, in this case stop routing over specific asset regardless of pool.
     Assuming that less hops (larger amount after fees) and large pools are optimal.
     """
-    def next(case: Case, path: list[tuple[int, int]], tendered: int, max_depth : int, results : list[tuple[list[tuple[int, int]], int, str]]):
+    def next(case: Case, path: list[tuple[int, int]], tendered: int, max_depth : int, results : list[tuple[list[tuple[int, int, int]]]]):
         if len(path) > max_depth:            
             return            
         for cfmm, tokens in enumerate(case.local_indices):
@@ -116,8 +116,10 @@ def all_routes(case: Case, max_depth : int = 10):
                         if case.tendered != received:
                             n = (tendered, cfmm, received)
                             if not n in path: 
+                                # yeah, better use n-ary tree
                                 new_path = copy.deepcopy(path) 
                                 new_path.append(n)
+                                
                                 results.append(new_path)
                                 next(case, new_path, received, max_depth, results)
     results = []
@@ -131,15 +133,29 @@ def test_paper_routes():
     for route in routes:
          print("", route, "\n")
 
+
+
 def inner_oracle(case: Case):
     routes = all_routes(case)
     oracles: list[float : None] = [None] * case.n
     for i, o in enumerate(oracles):
         if i == case.tendered:            
             oracles[i] = 1
-        elif o is None:
+        else:
+          issuance = 0
+          count = 0 
           for route in routes:
-            
+            if route[-1][2] ==  i:
+                # priced issuance
+                price = 1
+                for tendered, pool, received in route:
+                    tendered = case.reserves[pool].index(tendered)
+                    received = case.reserves[pool].index(received)
+                    price *= case.reserves[pool][received]/ case.reserves[pool][tendered] 
+                    
+                # averaging oracle
+                issuance+=price
+                count +=1
             pass
               
     return oracles  
