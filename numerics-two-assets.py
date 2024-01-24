@@ -8,7 +8,7 @@ import numpy as np
 import cvxpy as cp
 
 
-@dataclass(init=True)
+@dataclass(init=True, repr=True, eq=True, order=False, unsafe_hash=True, frozen=False)
 class Case:
     """
     Problem data
@@ -141,7 +141,7 @@ def scale(
                 ) in enumerate(token):
                     if r == t:
                         # all reservers of specific token downscaled
-                        case.reserves[k, p] = case.reserves[k, p] / scale
+                        case.reserves[k][p] = case.reserves[k][p] / scale
                         break
 
     # if some reservers are numerically small, skip these pools
@@ -173,7 +173,6 @@ def create_simple_big_case():
         list(map(np.array, [[10**18, 10**12]])),
         ["Uniswap"],
         np.array([0.99]),
-        [10**6],
         0,
         1,
     )
@@ -192,67 +191,81 @@ def test_scaling_when_there_is_none():
     assert len(r.items()) == 0
 
 
+def test_scaling_big():
+    import deepdiff as dd
+    case = create_simple_big_case()
+    amount = 10**6
+    new_case, new_amount = scale(amount, case)
+    r = dd.DeepDiff(case, new_case, ignore_order=False)
+    assert len(r.items()) != 0
+    print(r.items())
+
+
 # case = all_big
 # amounts = big_amounts
 original_case = from_paper
 amounts = amounts_from_paper
 
-for _j, t in enumerate(amounts):
-    case, t = scale(t, original_case)
+def main():
+    for _j, t in enumerate(amounts):
+        case, t = scale(t, original_case)
 
-    current_assets = np.full(case.n, 0)
-    current_assets[case.tendered] = t
+        current_assets = np.full(case.n, 0)
+        current_assets[case.tendered] = t
 
-    # Build local-global matrices
-    A = []
-    for l in case.local_indices:
-        n_i = len(l)
-        A_i = np.zeros((case.n, n_i))
-        for i, idx in enumerate(l):
-            A_i[idx, i] = 1
-        A.append(A_i)
+        # Build local-global matrices
+        A = []
+        for l in case.local_indices:
+            n_i = len(l)
+            A_i = np.zeros((case.n, n_i))
+            for i, idx in enumerate(l):
+                A_i[idx, i] = 1
+            A.append(A_i)
 
-    # Build variables
-    deltas = [cp.Variable(len(l), nonneg=True) for l in case.local_indices]
-    lambdas = [cp.Variable(len(l), nonneg=True) for l in case.local_indices]
+        # Build variables
+        deltas = [cp.Variable(len(l), nonneg=True) for l in case.local_indices]
+        lambdas = [cp.Variable(len(l), nonneg=True) for l in case.local_indices]
 
-    psi = cp.sum([A_i @ (L - D) for A_i, D, L in zip(A, deltas, lambdas)])
+        psi = cp.sum([A_i @ (L - D) for A_i, D, L in zip(A, deltas, lambdas)])
 
-    # Objective is to trade t of asset tendered for a maximum amount of asset received
-    obj = cp.Maximize(psi[case.received])
+        # Objective is to trade t of asset tendered for a maximum amount of asset received
+        obj = cp.Maximize(psi[case.received])
 
-    # Reserves after trade
-    new_reserves = [
-        R + gamma_i * D - L
-        for R, gamma_i, D, L in zip(case.reserves, case.fees, deltas, lambdas)
-    ]
+        # Reserves after trade
+        new_reserves = [
+            R + gamma_i * D - L
+            for R, gamma_i, D, L in zip(case.reserves, case.fees, deltas, lambdas)
+        ]
 
-    # Trading function constraints
-    cons = []
-    for i, venue in enumerate(case.venues):
-        if venue == "Balancer":
-            cons.append(
-                cp.geo_mean(new_reserves[i], p=np.array([3, 2, 1]))
-                >= cp.geo_mean(case.reserves[i], p=np.array([3, 2, 1]))
-            )
-        elif venue == "Uniswap":
-            cons.append(cp.geo_mean(new_reserves[i]) >= cp.geo_mean(case.reserves[i]))
-        elif venue == "Constant Sum":
-            cons.append(cp.sum(new_reserves[i]) >= cp.sum(case.reserves[i]))
-            cons.append(new_reserves[i] >= 0)
-        else:
-            cons.append(deltas[i] == 0)
-            cons.append(lambdas[i] == 0)
+        # Trading function constraints
+        cons = []
+        for i, venue in enumerate(case.venues):
+            if venue == "Balancer":
+                cons.append(
+                    cp.geo_mean(new_reserves[i], p=np.array([3, 2, 1]))
+                    >= cp.geo_mean(case.reserves[i], p=np.array([3, 2, 1]))
+                )
+            elif venue == "Uniswap":
+                cons.append(cp.geo_mean(new_reserves[i]) >= cp.geo_mean(case.reserves[i]))
+            elif venue == "Constant Sum":
+                cons.append(cp.sum(new_reserves[i]) >= cp.sum(case.reserves[i]))
+                cons.append(new_reserves[i] >= 0)
+            else:
+                cons.append(deltas[i] == 0)
+                cons.append(lambdas[i] == 0)
 
-    # Allow all assets at hand to be traded
-    cons.append(psi + current_assets >= 0)
+        # Allow all assets at hand to be traded
+        cons.append(psi + current_assets >= 0)
 
-    # Set up and solve problem
-    prob = cp.Problem(obj, cons)
-    prob.solve(verbose=True, solver=cp.SCIP)
-    if prob.status == cp.INFEASIBLE:
-        raise Exception(f"Problem status {prob.status}")
+        # Set up and solve problem
+        prob = cp.Problem(obj, cons)
+        prob.solve(verbose=True, solver=cp.SCIP)
+        if prob.status == cp.INFEASIBLE:
+            raise Exception(f"Problem status {prob.status}")
 
-    print(f"Total received value: {psi.value[case.received]}")
-    for i in range(case.m):
-        print(f"Market {i}, delta: {deltas[i].value}, lambda: {lambdas[i].value}")
+        print(f"Total received value: {psi.value[case.received]}")
+        for i in range(case.m):
+            print(f"Market {i}, delta: {deltas[i].value}, lambda: {lambdas[i].value}")
+
+if __name__ == "__main__":
+    main()
