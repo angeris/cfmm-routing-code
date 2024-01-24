@@ -166,6 +166,24 @@ from_paper = create_paper_case()
 amounts_from_paper = np.linspace(0, 50)
 
 
+def create_big_case_with_small_pool():
+    return Case(
+        list(range(2)),
+        [
+            [0, 1],
+            [0, 1]
+        ],
+        list(map(np.array, [
+            [10**12, 10**12],
+            [10**0, 10**6],
+                            ]
+                 )),
+        ["Uniswap", "Uniswap"],
+        np.array([0.99, 0.99]),
+        0,
+        1,
+    )
+    
 def create_simple_big_case():
     return Case(
         list(range(2)),
@@ -176,6 +194,7 @@ def create_simple_big_case():
         0,
         1,
     )
+    
 
 
 big_amounts = [10**6, 10**12]
@@ -196,21 +215,31 @@ def test_scaling_big():
 
     case = create_simple_big_case()
 
+    def check(case, amount, changed_pool, changed_amount, range = 10**12):
+        new_case, new_amount = scale(amount, case, range)
+        r = dd.DeepDiff(case, new_case, ignore_order=False)
+        if changed_pool:
+            print(r.items())
+            assert len(r.items()) != 0
+        else:
+            assert len(r.items()) == 0
+        
+        if changed_amount:
+            assert new_amount != amount
+            print("new vs old", new_amount, amount)
+        else:
+            assert new_amount == amount         
+        print("\n")         
+    
     # downscale just pool
-    amount = 10**7
-    new_case, new_amount = scale(amount, case)
-    r = dd.DeepDiff(case, new_case, ignore_order=False)
-    assert len(r.items()) != 0
-    print(r.items())
-    print("new vs old", new_amount, amount)
+    check(case, 10**7, True, True)
 
     # cap pool
-    amount = 10**1
-    new_case, new_amount = scale(amount, case)
-    r = dd.DeepDiff(case, new_case, ignore_order=False)
-    assert len(r.items()) != 0
-    print(r.items())
-    print("new vs old", new_amount, amount)
+    check(case, 10**1, True, False)
+    
+    # zeroing some reserves
+    case = create_big_case_with_small_pool()
+    check(case, 10**8, True, True, 10**6)
 
 
 # case = all_big
