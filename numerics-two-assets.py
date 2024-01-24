@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 import numpy as np
 import cvxpy as cp
 
-
 @dataclass(init=True, repr=True, eq=True, order=False, unsafe_hash=True, frozen=False)
 class Case:
     """
@@ -25,6 +24,8 @@ class Case:
 
     tendered: int
     received: int
+    
+    scale : list[float]
 
     # cardinality universe tokens
     @property
@@ -75,6 +76,7 @@ def create_paper_case():
         np.array([0.98, 0.99, 0.96, 0.97, 0.99]),
         0,
         2,
+        [1] * 3
     )
 
 
@@ -91,7 +93,7 @@ def test_case_sanity():
 # idea is user wants to trade/route, only after arbitrage
 #
 # Without oracle if input token is huge (like BTC) and out small (like SHIB), can numeric unstable in internal hops.
-# Possible solutions after downscale:
+# Possible solutions after downscale with Oracle:
 # 1. find all routes for depth first N hops(no cycles by input/output/pool key no double visit) without fees used to target token
 # 2. those we will find if route exists at all btw
 # 3. it will give us ability to eliminate some pools (not in route)
@@ -99,9 +101,11 @@ def test_case_sanity():
 # 5. decide what spot price to use (oracle decision)
 # 6. if some token in limit of downscale, but price is way less/more our token, down/up scale each such token (inside non oracle code)
 # 7. can do 5-6 if external oracle data provided (usually normalization to some stable token)
-
-
 # Oracalized approach eliminates less pools numerically small or caps big pools, so better for arbitrage.
+# Can use external oracle as option.
+# Actually it allows to put all values into some window range
+# 
+# Alternative approach, is to run solve, use failure result to find where to downscale.
 def scale(
     amount: int, case: Case, max_reserve_limit: float = 10**12, window_limit: int = 16
 ):
@@ -111,7 +115,7 @@ def scale(
     """
     assert window_limit > 0
     case = copy.deepcopy(case)
-    min_io_limit = max_reserve_limit / 10**window_limit
+    min_delta_lambda_limit = max_reserve_limit / 10**window_limit
     new_amount = amount
 
     # amount number too small and pools are big, assume pools are stable for that amount
@@ -121,7 +125,7 @@ def scale(
         scale = tendered_max_reserve / max_reserve_limit
         if scale > 1:
             new_amount = amount / scale
-            if new_amount < min_io_limit:
+            if new_amount < min_delta_lambda_limit:
                 new_amount = amount  # it will not be downscaled
                 for i, tokens in enumerate(case.local_indices):
                     if any(token == case.tendered for token in tokens):
@@ -142,25 +146,23 @@ def scale(
                     if r == t:
                         # all reservers of specific token downscaled
                         case.reserves[k][p] = case.reserves[k][p] / scale
+                        case.scale[t] = scale
                         break
 
     # if some reservers are numerically small, skip these pools
     for i, reserves in enumerate(case.reserves):
-        if any(reserve < min_io_limit for reserve in reserves):
+        if any(reserve < min_delta_lambda_limit for reserve in reserves):
             case.reserves[i] = np.zeros(len(reserves))
             case.venues[i] = "skip"
 
     return case, new_amount
 
-def scaleback(solution_amount: float, new_amount: float, new_case : Case, old_case: Case):
+def scaleback(solution_amount: float, scale : list[float], token : int):
     """_summary_
     After solution found, we need to scale back to original values.
     Works regardless of what strategy was used to scale down
     """
-    assert new_case.tendered == old_case.tendered
-    assert new_case.received == old_case.received
-
-    return solution_amount
+    return solution_amount * scale[token]
 
 
 from_paper = create_paper_case()
@@ -183,6 +185,7 @@ def create_big_case_with_small_pool():
         np.array([0.99, 0.99]),
         0,
         1,
+        [1] * 2
     )
     
 def create_simple_big_case():
@@ -194,6 +197,7 @@ def create_simple_big_case():
         np.array([0.99]),
         0,
         1,
+        [1] * 2
     )
 
 
@@ -229,7 +233,10 @@ def test_scaling_big():
             print("new vs old", new_amount, amount)
         else:
             assert new_amount == amount         
+        assert scaleback(new_amount, new_case.scale, new_case.tendered) == amount
+        
         print("\n")         
+        
     
     # downscale just pool
     check(case, 10**7, True, True)
