@@ -88,6 +88,13 @@ def test_case_sanity():
     assert r[2] == (3, 1)
 
 
+def inner_oracle(case: Case):
+    """_summary_
+    Builds oracle from existing data to window delta/lambda in reasonable numeric range 
+    """
+    def next(case: Case, path: list[tuple(int, int, int)], max_depth : int):
+        
+
 # oracle less solver oriented to find likely working route
 # may omit small pools which has some small reservers which has some arbitrage
 # idea is user wants to trade/route, only after arbitrage
@@ -201,6 +208,23 @@ def create_simple_big_case():
         [1] * 2
     )
 
+def create_big_price_range():
+    return Case(
+        list(range(2)),
+        [
+            [0, 1],
+            [1, 2],
+            [3, 4],
+         ],
+        list(map(np.array, [[10**2, 10**12]])),
+        ["Uniswap"],
+        np.array([1.0]),
+        0,
+        1,
+        [1] * 2
+    )
+
+
 
 big_amounts = [10**6, 10**12]
 
@@ -210,7 +234,7 @@ def test_scaling_when_there_is_none():
 
     case = create_paper_case()
     amount = 5
-    new_case, new_amount = scale(amount, case)
+    new_case, _new_amount = scale(amount, case)
     r = dd.DeepDiff(case, new_case, ignore_order=False)
     assert len(r.items()) == 0
 
