@@ -91,19 +91,38 @@ def test_case_sanity():
 def inner_oracle(case: Case):
     """_summary_
     Builds oracle from existing data to window delta/lambda in reasonable numeric range 
+    
+    Finds all routes of `max_depth`. 
+    If visited same pool with same token before, abort.    
     """
-    def next(case: Case, path: list[tuple(int, int)], current: int, max_depth : int):
+    def next(case: Case, path: list[tuple(int, int)], current: int, max_depth : int, visited: set[tuple[int, int]], paths : list[tuple[list[tuple(int, int)], int, str]]):
         if len(path) > max_depth:
-            return (path, current, "max depth")
-        
+            paths.append((path, current, "max depth"))
+            return 
+        # we were in this pool with same input asset
+        if len(visited) > 0 and len(path) > 0 and visited.contains((current, path[-1][1])):
+            path.append((path, current, "final"))
+            return
+            
+        for pool, tokens in enumerate(case.local_indices[current]):
+            if any(t == current for t in tokens):                
+                for t in tokens:
+                    if t != current:
+                        path = copy.deepcopy(path) 
+                        path.append((current, pool))
+                        next(case, path, t, max_depth+1)
+    result = []
+    next(case, [], case.tendered, 0, set(), result)
+    return result
 
-# oracle less solver oriented to find likely working route
+                
+# Solver oriented to find likely working route
 # may omit small pools which has some small reservers which has some arbitrage
 # idea is user wants to trade/route, only after arbitrage
 #
 # Without oracle if input token is huge (like BTC) and out small (like SHIB), can numeric unstable in internal hops.
 # Possible solutions after downscale with Oracle:
-# 1. find all routes for depth first N hops(no cycles by input/output/pool key no double visit) without fees used to target token
+# 1. 
 # 2. those we will find if route exists at all btw
 # 3. it will give us ability to eliminate some pools (not in route)
 # 4. and also will give us price oracle of each input token to output
