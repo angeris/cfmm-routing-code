@@ -9,16 +9,8 @@
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "x86_64-linux" "aarch64-darwin" "x86_64-darwin" ];
       perSystem = { config, self', inputs', pkgs, system, ... }:
-        {
-          devShells.default = pkgs.mkShell {
-            LD_LIBRARY_PATH = with pkgs; lib.strings.makeLibraryPath [
-              stdenv.cc.cc.lib
-              zlib
-              zlib.dev
-              zlib.out
-            ];
-
-            nativeBuildInputs = with pkgs; [
+      let 
+      nativeBuildInputs = with pkgs; [
               poetry
               python3
               zlib
@@ -28,9 +20,21 @@
                 (ps: with ps; [ gensymb type1cm cm-super ]))
               ps
             ];
+            in 
+        {
+          devShells.default = pkgs.mkShell {
+            LD_LIBRARY_PATH = with pkgs; lib.strings.makeLibraryPath [
+              stdenv.cc.cc.lib
+              zlib
+              zlib.dev
+              zlib.out
+            ];
+            inherit nativeBuildInputs;
+            
             enterShell = ''
               poetry lock --no-update
               poetry instal --no-root
+              poetry run black numerics-two-assets.py
             '';
           };
         };

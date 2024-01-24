@@ -193,18 +193,21 @@ def test_scaling_when_there_is_none():
 
 def test_scaling_big():
     import deepdiff as dd
+
     case = create_simple_big_case()
-    amount = 10**6
+    amount = 10**7
     new_case, new_amount = scale(amount, case)
     r = dd.DeepDiff(case, new_case, ignore_order=False)
     assert len(r.items()) != 0
     print(r.items())
+    print("new vs old", new_amount, amount)
 
 
 # case = all_big
 # amounts = big_amounts
 original_case = from_paper
 amounts = amounts_from_paper
+
 
 def main():
     for _j, t in enumerate(amounts):
@@ -246,7 +249,9 @@ def main():
                     >= cp.geo_mean(case.reserves[i], p=np.array([3, 2, 1]))
                 )
             elif venue == "Uniswap":
-                cons.append(cp.geo_mean(new_reserves[i]) >= cp.geo_mean(case.reserves[i]))
+                cons.append(
+                    cp.geo_mean(new_reserves[i]) >= cp.geo_mean(case.reserves[i])
+                )
             elif venue == "Constant Sum":
                 cons.append(cp.sum(new_reserves[i]) >= cp.sum(case.reserves[i]))
                 cons.append(new_reserves[i] >= 0)
@@ -266,6 +271,7 @@ def main():
         print(f"Total received value: {psi.value[case.received]}")
         for i in range(case.m):
             print(f"Market {i}, delta: {deltas[i].value}, lambda: {lambdas[i].value}")
+
 
 if __name__ == "__main__":
     main()
