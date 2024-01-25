@@ -16,6 +16,7 @@
 
 import copy
 from dataclasses import dataclass, field
+from fractions import Fraction
 import numpy as np
 import cvxpy as cp
 
@@ -155,9 +156,9 @@ def test_paper_routes():
         print("", route, "\n")
 
 
-def inner_oracle(case: Case, debug: bool = False ) -> list[float]:
+def inner_oracle(case: Case, debug: bool = False ) -> list[float | None]:
     routes = all_routes(case, debug)
-    oracles: list[float:None] = [None] * case.n
+    oracles: list[float | None] = [None] * case.n
     for i, _o in enumerate(oracles):
         if i == case.tendered:
             oracles[i] = 1.0
@@ -183,7 +184,8 @@ def inner_oracle(case: Case, debug: bool = False ) -> list[float]:
                     count += last
 
             # reserves weighted averaging oracle
-            oracles[i] = issuance / count
+            if count > 0:
+                oracles[i] = issuance / count
 
     return oracles
 
@@ -198,8 +200,15 @@ def test_paper_oracles():
 # Scale in oriented to find likely working route.
 # May omit small pools which has some small reserves which has some arbitrage.
 # Trade/route first, arbitrage second.
+# 
+# Cannot set feasibility tolerance to small value 1e-11 without GMP - using 1e-10.
+# `min_fraction_swapped` - assumed that will no go over venue if fraction is less than this of tendered token 
 def scale_in(
-    amount: int, case: Case, max_reserve_limit: float = 10**8, window_limit: int = 14
+    amount: int, 
+    case: Case, 
+    max_reserve_limit: float = 10**8, 
+    window_limit: int = 12,
+    min_fraction_swapped : Fraction = Fraction(1, 1000),
 ):
     """_summary
     Returns new problem case to solve in scale.
@@ -215,6 +224,7 @@ def scale_in(
     
     # amount number too small and pools are big, assume pools are stable for that amount
     # so we tackle input vs all scaling
+    
     
     cfmm, local = case.maximal_reserves[case.tendered]    
     tendered_max_reserve = case.reserves[cfmm][local]
@@ -306,9 +316,6 @@ def create_simple_big_case():
     )
 
 
-big_amounts = [10**6, 10**12]
-
-
 def test_scaling_when_there_is_none():
     import deepdiff as dd
 
@@ -352,36 +359,9 @@ def test_scaling_big():
     case = create_big_case_with_small_pool()
     check(case, 10**8, True, True, 10**6)
 
-def create_big_price_range():
-    return Case(
-        list(range(3)),
-        [
-            [0, 1],
-            [1, 2],
-        ],
-        list(map(np.array, [
-            [10**4, 10**12],
-            [10**12, 10**14],
-            ])),
-        ["Uniswap", "Uniswap"],
-        np.array([1.0, 1.0]),
-        0,
-        2,
-        [1] * 3,
-    )
-
-
-original_case = create_big_price_range()
-amounts = [10**3]
-# original_case = create_simple_big_case()
-# amounts = big_amounts
-# original_case = from_paper
-# amounts = amounts_from_paper
-
-
-def main():
+def main(case=from_paper, amounts=amounts_from_paper):
     for _j, t in enumerate(amounts):
-        case, t = scale_in(t, original_case)
+        case, t = scale_in(t, case)
         print(case)
         current_assets = np.full(case.n, 0)
         current_assets[case.tendered] = t
@@ -434,7 +414,16 @@ def main():
 
         # Set up and solve problem
         prob = cp.Problem(obj, cons)
-        prob.solve(verbose=True, solver=cp.SCIP)
+        prob.solve(verbose=True, solver=cp.SCIP, scip_params = { 
+                                                                "lp/checkstability" : "1",
+                                                                "lp/checkprimfeas" : "1", # influence feasibility
+                                                                # lp/checkdualfeas = TRUE   
+                                                                "lp/scaling" : "1",
+                                                                #lp/presolving = TRUE
+                                                                #lp/threads = 0
+                                                                #nlp/solver = ""
+                                                                #nlp/disable = FALSE
+                                                                })
         if prob.status == cp.INFEASIBLE:
             raise Exception(f"Problem status {prob.status}")
 
@@ -444,6 +433,33 @@ def main():
         for i in range(case.m):
             print(f"Market {i}, delta: {deltas[i].value}, lambda: {lambdas[i].value}")
 
+
+
+
+def create_big_price_range():
+    return Case(
+        list(range(3)),
+        [
+            [0, 1],
+            [1, 2],
+        ],
+        list(map(np.array, [
+            [10**4, 10**12],
+            [10**12, 10**14],
+            ])),
+        ["Uniswap", "Uniswap"],
+        np.array([1.0, 1.0]),
+        0,
+        2,
+        [1] * 3,
+    )
+
+def test_solve_simple_big():
+    main(create_simple_big_case(), [10**3, 10**6])
+    
+def test_solve_big_price_range():
+    main(create_big_price_range(), [10**3, 10**16])
+        
 
 if __name__ == "__main__":
     main()

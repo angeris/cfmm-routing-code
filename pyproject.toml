@@ -7,10 +7,12 @@ authors = []
 [tool.poetry.dependencies]
 python = ">=3.11.6, <=3.11.7"
 
-cvxpy = { version = "*", extras = ["all"] }
+cvxpy = { version = "1.3.2", extras = ["scip", "ecos"] } # 1.3.3+ got some new deps to handle qdldl
 numpy = { version = "*", extras = ["all"] }
 matplotlib = { version = "*", extras = ["all"] }
 latexify-py = { version = "*", extras = ["all"] }
+
+PySCIPOpt = "4.4.0"  # with GMP support
 
 [build-system]
 requires = ["poetry-core"]
