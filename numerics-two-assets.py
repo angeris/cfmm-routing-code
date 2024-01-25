@@ -6,6 +6,13 @@
 # - scale in using raw limits, cap reservers against small tendered, and scaling in using oracle (including inner)
 # This solution going second way.
 # For more context this overview is nice https://www.youtube.com/watch?v=hYBAqcx0H18
+# If solver fails, can try scale one or more times.
+# Amid external vs internal oracle:
+# - Internal oracle proves there is path at all
+# - Internal oracle shows price for route, not price outside on some CEX, which is more correct
+# - Internal oracle harder to attack/manipulate
+# 
+# So using internal oracle is better.
 
 import copy
 from dataclasses import dataclass, field
@@ -114,8 +121,11 @@ def all_routes(case: Case, max_depth: int = 10):
         tendered: int,
         max_depth: int,
         results: list[tuple[list[tuple[int, int, int]]]],
+        debug : bool = False,
     ):
         if len(path) > max_depth:
+            if debug:
+                print("max depth reached")
             return
         for cfmm, tokens in enumerate(case.local_indices):
             if any(x == tendered for x in tokens):
@@ -145,8 +155,8 @@ def test_paper_routes():
         print("", route, "\n")
 
 
-def inner_oracle(case: Case) -> list[float]:
-    routes = all_routes(case)
+def inner_oracle(case: Case, debug: bool = False ) -> list[float]:
+    routes = all_routes(case, debug)
     oracles: list[float:None] = [None] * case.n
     for i, _o in enumerate(oracles):
         if i == case.tendered:
@@ -156,20 +166,23 @@ def inner_oracle(case: Case) -> list[float]:
             count = 0
             for route in routes:
                 if route[-1][2] == i:
-                    # priced issuance
+                    # reservers normalized oracle                    
                     price = 1
+                    last = 0
                     for tendered, pool, received in route:
                         tendered = case.local_indices[pool].index(tendered)
                         received = case.local_indices[pool].index(received)
+                        last = case.reserves[pool][received];
                         price *= (
-                            case.reserves[pool][received]
+                            last
                             / case.reserves[pool][tendered]
+                            # here can consider using fees
                         )
+                        
+                    issuance += price * last
+                    count += last
 
-                    issuance += price
-                    count += 1
-
-            # averaging oracle
+            # reserves weighted averaging oracle
             oracles[i] = issuance / count
 
     return oracles
@@ -348,7 +361,7 @@ def create_big_price_range():
         ],
         list(map(np.array, [
             [10**4, 10**12],
-            [10**12, 10**12],
+            [10**12, 10**14],
             ])),
         ["Uniswap", "Uniswap"],
         np.array([1.0, 1.0]),
