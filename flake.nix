@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     scip = {
-      url = github:dzmitry-lahoda-forks/scip/3cb6153dd1ecb5c21be6cf5a65b5003b5cfc3a39;
+      url = github:dzmitry-lahoda-forks/scip/d3d14840f8b87afbf9e6a7064cb7dbae7e386622;
       inputs.nixpkgs.follows = "nixpkgs";
     };
     pyscipopt-src = {
@@ -119,9 +119,9 @@
               zlib
               zlib.dev
               zlib.out
-              "${inputs'.scip.packages.scip}/lib"
+              #"${inputs'.scip.packages.scip}/lib"
             ];
-            SCIPOPTDIR = inputs'.scip.packages.scip;
+            #SCIPOPTDIR = "asdsada";# inputs'.scip.packages.scip;
             inherit nativeBuildInputs;
 
             enterShell = ''

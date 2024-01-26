@@ -110,17 +110,17 @@
         "nixpkgs": "nixpkgs_4"
       },
       "locked": {
-        "lastModified": 1706223107,
-        "narHash": "sha256-gWsWZFAr4NkZFQoK7csw3a22CyRJ5CFpTWM1k4qRpuY=",
+        "lastModified": 1706276124,
+        "narHash": "sha256-8423Rb3ikv4FodIOMqqGY0857Q0MvDMksKcIvIFDs/U=",
         "owner": "dzmitry-lahoda-forks",
         "repo": "Ipopt",
-        "rev": "676f881a54bbdc185ca60c1bf0f847268e067336",
+        "rev": "3eabbd888a6c5b83448083876722296ce20039c3",
         "type": "github"
       },
       "original": {
         "owner": "dzmitry-lahoda-forks",
         "repo": "Ipopt",
-        "rev": "676f881a54bbdc185ca60c1bf0f847268e067336",
+        "rev": "3eabbd888a6c5b83448083876722296ce20039c3",
         "type": "github"
       }
     },
@@ -474,17 +474,17 @@
         "suite-src": "suite-src"
       },
       "locked": {
-        "lastModified": 1706227084,
-        "narHash": "sha256-XUZnSpjnb7VG4PgYt+SK1IHz3bXOgo/8KCR81jSMxas=",
+        "lastModified": 1706276473,
+        "narHash": "sha256-afp8Smv77sYq27oqq50iy9ScbsISaZc4WNEqTimOkvw=",
         "owner": "dzmitry-lahoda-forks",
         "repo": "scip",
-        "rev": "3cb6153dd1ecb5c21be6cf5a65b5003b5cfc3a39",
+        "rev": "d3d14840f8b87afbf9e6a7064cb7dbae7e386622",
         "type": "github"
       },
       "original": {
         "owner": "dzmitry-lahoda-forks",
         "repo": "scip",
-        "rev": "3cb6153dd1ecb5c21be6cf5a65b5003b5cfc3a39",
+        "rev": "d3d14840f8b87afbf9e6a7064cb7dbae7e386622",
         "type": "github"
       }
     },
@@ -507,13 +507,13 @@
     "suite-src": {
       "flake": false,
       "locked": {
-        "narHash": "sha256-UjEYFcKsfBbBN25xxWFRIdZzenUk2Ooev8lz2eQtzTk=",
+        "narHash": "sha256-UcA6II/h4QACKHtE/DrwRWw9UEiPmmLevnAh2uO3yPk=",
         "type": "tarball",
-        "url": "https://scipopt.org/download/release/scipoptsuite-8.1.0.tgz"
+        "url": "https://scipopt.org/download/release/scipoptsuite-8.0.3.tgz"
       },
       "original": {
         "type": "tarball",
-        "url": "https://scipopt.org/download/release/scipoptsuite-8.1.0.tgz"
+        "url": "https://scipopt.org/download/release/scipoptsuite-8.0.3.tgz"
       }
     },
     "systems": {
