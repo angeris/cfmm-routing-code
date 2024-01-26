@@ -8,13 +8,16 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     pyscipopt-src = {
-      url = "github:scipopt/PySCIPOpt/v4.4.0";
+      url = "github:dzmitry-lahoda-forks/PySCIPOpt/81e6c92fa2256359cf3288cf544eda91e942d2c3";
       flake = false;
     };
     maturin-src = {
       url = "github:PyO3/maturin";
       flake = false;
     };
+    ipopt = {
+      url = "github:dzmitry-lahoda-forks/Ipopt/3eabbd888a6c5b83448083876722296ce20039c3";
+    };    
   };
 
   outputs = inputs@{ flake-parts, poetry2nix, pyscipopt-src, ... }:
@@ -49,6 +52,7 @@
             inputs'.scip.packages.scip
             inputs'.scip.packages.soplex
             inputs'.scip.packages.papilo
+            inputs'.ipopt.packages.default
           ];
           nativeBuildInputs = with pkgs; [
             poetry
@@ -59,7 +63,7 @@
             (texliveSmall.withPackages
               (ps: with ps; [ gensymb type1cm cm-super ]))
             ps
-            pyscipopt
+            # pyscipopt
             envShell
           ] ++ scipopt;
           inherit (poetry2nix.lib.mkPoetry2Nix { inherit pkgs; }) mkPoetryEnv overrides;
@@ -72,19 +76,17 @@
                 buildInputs = old.buildInputs or [ ] ++ [ pkgs.meson pkgs.python3Packages.meson-python pkgs.pkg-config pkgs.blas pkgs.lapack ];
                 nativeBuildInputs = old.nativeBuildInputs or [ ] ++ [ pkgs.meson pkgs.python3Packages.meson-python pkgs.blas pkgs.lapack ];
               });
-              pyscipopt = pyscipopt;
-              # cylp = super.cylp.overridePythonAttrs (old: {
-              #   buildInputs = old.buildInputs or [] ++ [self.python.pkgs.setuptools self.python.pkgs.wheel pkgs.cbc pkgs.pkg-config];
-              #   nativeBuildInputs = old.nativeBuildInputs or [] ++ [self.python.pkgs.setuptools self.python.pkgs.wheel pkgs.cbc pkgs.pkg-config];
-              # });
-              # cvxpy = cvxpy-latest;
+              pyscipopt = super.pyscipopt.overridePythonAttrs (old: {
+                buildInputs = old.buildInputs or [ ] ++ [ self.python.pkgs.setuptools ] ++ scipopt;
+                SCIPOPTDIR = inputs'.scip.packages.scip;
+              });
               maturin = maturin-latest;
             });
 
           envShell = mkPoetryEnv {
             projectDir = ./.;
             overrides = override overrides;
-            extraPackages = (ps: [ pyscipopt ]);
+            #extraPackages = (ps: [ pyscipopt ]);
           };
           pyscipopt = pkgs.python3Packages.buildPythonPackage {
             name = "pyscipopt";
@@ -119,9 +121,10 @@
               zlib
               zlib.dev
               zlib.out
-              #"${inputs'.scip.packages.scip}/lib"
+              # "${inputs'.scip.packages.scip}/lib"
+              # "${inputs'.ipopt.packages.default}/lib"
             ];
-            #SCIPOPTDIR = "asdsada";# inputs'.scip.packages.scip;
+            # SCIPOPTDIR = inputs'.scip.packages.scip;
             inherit nativeBuildInputs;
 
             enterShell = ''

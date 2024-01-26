@@ -5,16 +5,15 @@ description = "CFMM routing"
 authors = []
 
 [tool.poetry.dependencies]
-python = ">=3.11.6, <=3.11.7"
+python = ">=3.11.7, <3.12"
 
-cvxpy = { version = "1.3.2", extras = ["scip", "ecos"] } # 1.3.3+ got some new deps to handle qdldl
+cvxpy = { version = "1.4.2", extras = ["scip", "ecos"] }
 numpy = { version = "*", extras = ["all"] }
 matplotlib = { version = "*", extras = ["all"] }
 latexify-py = { version = "*", extras = ["all"] }
 
-#PySCIPOpt = {version = "4.4.0"}  # with GMP support
-#PySCIPOpt = { git = "https://github.com/scipopt/PySCIPOpt.git", tag = "v4.4.0"}  # with GMP support
-PySCIPOpt = { path = "/home/dz/github.com/scipopt/PySCIPOpt", develop = true }
+PySCIPOpt = {version = "4.4.0"}  
+# PySCIPOpt = { git = "https://github.com/dzmitry-lahoda-forks/PySCIPOpt.git", rev = "81e6c92fa2256359cf3288cf544eda91e942d2c3"}  # with GMP support
 
 [build-system]
 requires = ["poetry-core"]
