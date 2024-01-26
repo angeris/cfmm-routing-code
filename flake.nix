@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     scip = {
-      url = github:dzmitry-lahoda-forks/scip/6920b90b28af01a8d2582e7b0a8d7f88d79ec613;
+      url = github:dzmitry-lahoda-forks/scip/3cb6153dd1ecb5c21be6cf5a65b5003b5cfc3a39;
       inputs.nixpkgs.follows = "nixpkgs";
     };
     pyscipopt-src = {
@@ -46,7 +46,7 @@
             ];
           };
           scipopt = [
-                        inputs'.scip.packages.scip
+            inputs'.scip.packages.scip
             inputs'.scip.packages.soplex
             inputs'.scip.packages.papilo
           ];
@@ -59,8 +59,8 @@
             (texliveSmall.withPackages
               (ps: with ps; [ gensymb type1cm cm-super ]))
             ps
+            pyscipopt
             envShell
-            pyscipopt-gmp
           ] ++ scipopt;
           inherit (poetry2nix.lib.mkPoetry2Nix { inherit pkgs; }) mkPoetryEnv overrides;
           override = overrides:
@@ -69,10 +69,10 @@
                 buildInputs = old.buildInputs or [ ] ++ [ self.python.pkgs.maturin ];
               });
               scs = super.scs.overridePythonAttrs (old: {
-                buildInputs = old.buildInputs or [ ] ++ [ pkgs.meson pkgs.python3Packages.meson-python pkgs.pkg-config pkgs.blass pkgs.lapack ];
+                buildInputs = old.buildInputs or [ ] ++ [ pkgs.meson pkgs.python3Packages.meson-python pkgs.pkg-config pkgs.blas pkgs.lapack ];
                 nativeBuildInputs = old.nativeBuildInputs or [ ] ++ [ pkgs.meson pkgs.python3Packages.meson-python pkgs.blas pkgs.lapack ];
               });
-              pyscipopt = pyscipopt-gmp;
+              pyscipopt = pyscipopt;
               # cylp = super.cylp.overridePythonAttrs (old: {
               #   buildInputs = old.buildInputs or [] ++ [self.python.pkgs.setuptools self.python.pkgs.wheel pkgs.cbc pkgs.pkg-config];
               #   nativeBuildInputs = old.nativeBuildInputs or [] ++ [self.python.pkgs.setuptools self.python.pkgs.wheel pkgs.cbc pkgs.pkg-config];
@@ -84,15 +84,18 @@
           envShell = mkPoetryEnv {
             projectDir = ./.;
             overrides = override overrides;
+            extraPackages = (ps: [ pyscipopt ]);
           };
-          pyscipopt-gmp = pkgs.python3Packages.buildPythonPackage {
+          pyscipopt = pkgs.python3Packages.buildPythonPackage {
             name = "pyscipopt";
             version = "v4.4.0";
             format = "pyproject";
+            LD_LIBRARY_PATH = with pkgs; lib.strings.makeLibraryPath [
+              "${inputs'.scip.packages.scip}/lib"
+            ];
             SCIPOPTDIR = inputs'.scip.packages.scip;
             src = inputs.pyscipopt-src;
             propagatedBuildInputs = scipopt;
-
             nativeBuildInputs = with pkgs.python3Packages; [
               setuptools
               pkgs.pkg-config
@@ -105,7 +108,7 @@
         in
         {
           packages = {
-            inherit pyscipopt-gmp;
+            inherit pyscipopt;
             scip = inputs'.scip.packages.scip;
             soplex = inputs'.scip.packages.soplex;
             papilo = inputs'.scip.packages.papilo;
@@ -118,6 +121,7 @@
               zlib.out
               "${inputs'.scip.packages.scip}/lib"
             ];
+            SCIPOPTDIR = inputs'.scip.packages.scip;
             inherit nativeBuildInputs;
 
             enterShell = ''

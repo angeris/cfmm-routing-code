@@ -12,7 +12,9 @@ numpy = { version = "*", extras = ["all"] }
 matplotlib = { version = "*", extras = ["all"] }
 latexify-py = { version = "*", extras = ["all"] }
 
-PySCIPOpt = "4.4.0"  # with GMP support
+#PySCIPOpt = {version = "4.4.0"}  # with GMP support
+#PySCIPOpt = { git = "https://github.com/scipopt/PySCIPOpt.git", tag = "v4.4.0"}  # with GMP support
+PySCIPOpt = { path = "/home/dz/github.com/scipopt/PySCIPOpt", develop = true }
 
 [build-system]
 requires = ["poetry-core"]

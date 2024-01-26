@@ -1,3 +1,5 @@
 __pycache__
 *.pdf
 .DS_Store
+result
+*.log

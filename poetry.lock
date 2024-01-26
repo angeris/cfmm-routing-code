@@ -169,8 +169,10 @@ files = [
 [package.dependencies]
 ecos = ">=2"
 numpy = ">=1.15"
+osqp = ">=0.4.1"
 PySCIPOpt = {version = "*", optional = true, markers = "extra == \"scip\""}
 scipy = ">=1.1.0"
+scs = ">=1.1.6"
 setuptools = ">65.5.1"
 
 [package.extras]
@@ -188,6 +190,7 @@ pdlp = ["ortools (>=9.3,<9.5)"]
 proxqp = ["proxsuite"]
 scip = ["PySCIPOpt"]
 scipy = ["scipy"]
+scs = ["setuptools (>65.5.1)"]
 xpress = ["xpress"]
 
 [[package]]
@@ -592,6 +595,45 @@ files = [
 dev = ["black", "mypy", "pytest"]
 
 [[package]]
+name = "osqp"
+version = "0.6.3"
+description = "OSQP: The Operator Splitting QP Solver"
+optional = false
+python-versions = "*"
+files = [
+    {file = "osqp-0.6.3-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:e6b7d923c836f1d07115057e595245ccc1694ecae730a1affda78fc6f3c8d239"},
+    {file = "osqp-0.6.3-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e1dfda08c38c3521012740a73ef782f97dfc54a41deae4b0bc4afd18d0e74da0"},
+    {file = "osqp-0.6.3-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7eafa3f3e82dd36c52f3f4ef19a95142405c807c272c4b53c5971c53535d7804"},
+    {file = "osqp-0.6.3-cp310-cp310-win_amd64.whl", hash = "sha256:3cbb6efdaffb7387dc0037dfe3259d4803e5ad7217e6f20fb605c92953214b9d"},
+    {file = "osqp-0.6.3-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:1b2049b2c42565dcaa63ddca1c4028b1fb20aab141453f5d77e8ff5b1a99a2cf"},
+    {file = "osqp-0.6.3-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:146b89f2cfbf59eaeb2c47e3a312f2034138df78d80ce052364810dc0ef70fc4"},
+    {file = "osqp-0.6.3-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0084e3d733c75687d68bc133bc380ce471dfe6f7724af2718a43491782eec8d6"},
+    {file = "osqp-0.6.3-cp311-cp311-win_amd64.whl", hash = "sha256:1b573fe1cd0e82239a279c58817c1d365187ef862e928b2b9c828c3c516ad3c2"},
+    {file = "osqp-0.6.3-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:6c3951ef505177b858c6cd34de980346014cae3d2234c93db960b12c5885f9a2"},
+    {file = "osqp-0.6.3-cp36-cp36m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:dc18f87c9549032c163ce590a5e32079df94ee656c8fb357ba607aa9d78fab81"},
+    {file = "osqp-0.6.3-cp36-cp36m-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c07b1a4b538aab629b0fae69f644b7e76f81f94d65230014d482e296dacd046b"},
+    {file = "osqp-0.6.3-cp36-cp36m-win_amd64.whl", hash = "sha256:60abec3593870990b16f00bd5017096a7091fb00b68d0db3383fc048ca8e55c9"},
+    {file = "osqp-0.6.3-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:b73bdd9589901841af83c5ed6a4092b4fac5a0beff9e32682d8526d1f16a728c"},
+    {file = "osqp-0.6.3-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:71d9f611823af4a8b241c86805920e5382cd65c7f94fd3615b4eef999ed94c7c"},
+    {file = "osqp-0.6.3-cp37-cp37m-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:30fbc3b3c028c06a6c5f1e66be7b7106ad48a29e0dc5bd82393f82dd68235ef8"},
+    {file = "osqp-0.6.3-cp37-cp37m-win_amd64.whl", hash = "sha256:fe57e4bde071b388518ecb068f26319506dd9cb107363d3d80c12d2e59fc1e81"},
+    {file = "osqp-0.6.3-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:41f304d1d7f91af07d8f0b01e5af29ec3bb8824f0102c7fd8b13b497be120da4"},
+    {file = "osqp-0.6.3-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ea7d8c92bcdf4fef98d777f13d39060d425ef2e8778ed487c96a6fa10848cdea"},
+    {file = "osqp-0.6.3-cp38-cp38-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3f3a3c6d2708868e5e3fe2da300d6523cbf68a3d8734ce9c5043db37391969f5"},
+    {file = "osqp-0.6.3-cp38-cp38-win_amd64.whl", hash = "sha256:1c548a0b3691850e7e22f3624a128d8af33416d70a9b5976a47d4d832028dcd8"},
+    {file = "osqp-0.6.3-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:387e7abd737dfe32c9ec00ad74af25328cdd0d0f634d79530655c040a5cb9590"},
+    {file = "osqp-0.6.3-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e1445e10a94e01698e13c87a7debf6ac1a15f3acd1f8f6340cb1ad945db4732b"},
+    {file = "osqp-0.6.3-cp39-cp39-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0441c10f7fe5f46692a9b44a57138977bb112ae3f8127151671968c5d9ec5dbb"},
+    {file = "osqp-0.6.3-cp39-cp39-win_amd64.whl", hash = "sha256:b15e65a307fbbabf60248bb9bc204e61d5d4ae64e00427a69e2dad9622f4c29d"},
+    {file = "osqp-0.6.3.tar.gz", hash = "sha256:03e460e683ec2ce0f839353ddfa3c4c8ffa509ab8cf6a2b2afbb586fa453e180"},
+]
+
+[package.dependencies]
+numpy = ">=1.7"
+qdldl = "*"
+scipy = ">=0.13.2"
+
+[[package]]
 name = "packaging"
 version = "23.2"
 description = "Core utilities for Python packages"
@@ -743,30 +785,17 @@ files = [
 diagrams = ["jinja2", "railroad-diagrams"]
 
 [[package]]
-name = "pyscipopt"
+name = "PySCIPOpt"
 version = "4.4.0"
 description = "Python interface and modeling environment for SCIP"
 optional = false
 python-versions = "*"
-files = [
-    {file = "PySCIPOpt-4.4.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:da94fef084be20a654b2d9e4af05b5c7c8360f086a29466b7dcb5c256f604410"},
-    {file = "PySCIPOpt-4.4.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f8f48dcc7c67512033bc3cca76f6fb142f6ecb7734513c10d14b87709c653ea9"},
-    {file = "PySCIPOpt-4.4.0-cp310-cp310-win_amd64.whl", hash = "sha256:94f5943f1864bb170e19dc7628bc5a9e4f67b81311b90ea4a8c5b93d3ab77ca5"},
-    {file = "PySCIPOpt-4.4.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:336b48b5b75a9dadc9126543747a2ff8db9701fed8ebb6838291e075eba1d5a9"},
-    {file = "PySCIPOpt-4.4.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:cad91ad249f7dda1b72b46d54f03433be5db1f9fadd79b3b3a87bb3eef7ad43e"},
-    {file = "PySCIPOpt-4.4.0-cp311-cp311-win_amd64.whl", hash = "sha256:6c9070336685dee1529c1aacba3cc5a922726b2979d49953f076e60b813d53dd"},
-    {file = "PySCIPOpt-4.4.0-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:2a07d06779fc3fba9ea2201ed63b7827b723b12bfd17edd8b54453afc7d93a21"},
-    {file = "PySCIPOpt-4.4.0-cp36-cp36m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ed1ac8c27bec617159330f114fc85ce8677f0acc7de5a652a4aee106fd1c5e2b"},
-    {file = "PySCIPOpt-4.4.0-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:6b0de46d4353695b9bcd8fdd6c904850626f12d82fddf97bb7a23adfa101c7b6"},
-    {file = "PySCIPOpt-4.4.0-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1d6e6eff6bdfe3583bcb92a8d1bf372d1e58cea5312cc9ee5acb0318805c08ea"},
-    {file = "PySCIPOpt-4.4.0-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:e54664545d6d8245f4638857e553b455079ef5853249842082ef4f32fa5d2991"},
-    {file = "PySCIPOpt-4.4.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4c0bf10035bbbbaafafdbba6e930c077f873bda08700953314fc3998effc2c25"},
-    {file = "PySCIPOpt-4.4.0-cp38-cp38-win_amd64.whl", hash = "sha256:2a1673710b9d1b16fdafb9d880da234e1f1aa2a06843a318d887d1d5cc8e50e2"},
-    {file = "PySCIPOpt-4.4.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:6dfa7866562928b6675edce8463fba2cd7d59ecc2602657c356c470b0eaf5d23"},
-    {file = "PySCIPOpt-4.4.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d1b76b5b4ae4246a2ee817f3735e7a30a2f7a964f77859730b286c3e44414520"},
-    {file = "PySCIPOpt-4.4.0-cp39-cp39-win_amd64.whl", hash = "sha256:81f878e6cf00030e9293fcdced88764d47d8e550746e25754090dd7032e4e18c"},
-    {file = "PySCIPOpt-4.4.0.tar.gz", hash = "sha256:87aad96de296991792db0b49ad5cab614ade3e00207bf80f3397745aa478579b"},
-]
+files = []
+develop = true
+
+[package.source]
+type = "directory"
+url = "../../scipopt/PySCIPOpt"
 
 [[package]]
 name = "pytest"
@@ -801,7 +830,6 @@ files = [
 
 [package.dependencies]
 six = ">=1.5"
-
 
 [[package]]
 name = "scipy"
@@ -875,4 +903,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11.6, <=3.11.7"
-content-hash = "7e8bf6cbb95145affa0fcbb7da5df5b4aef703aba6cb2c0af4b7e4c6e5606132"
+content-hash = "78a39a977e674da153628043538fcc5e7b6d145e8c8e8e52e135c3112ea69280"
