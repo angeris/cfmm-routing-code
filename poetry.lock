@@ -172,7 +172,6 @@ numpy = ">=1.15"
 osqp = ">=0.4.1"
 PySCIPOpt = {version = "*", optional = true, markers = "extra == \"scip\""}
 scipy = ">=1.1.0"
-scs = ">=1.1.6"
 setuptools = ">65.5.1"
 
 [package.extras]
@@ -190,7 +189,6 @@ pdlp = ["ortools (>=9.3,<9.5)"]
 proxqp = ["proxsuite"]
 scip = ["PySCIPOpt"]
 scipy = ["scipy"]
-scs = ["setuptools (>65.5.1)"]
 xpress = ["xpress"]
 
 [[package]]
