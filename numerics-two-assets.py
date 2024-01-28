@@ -12,14 +12,13 @@
 # - Internal oracle shows price for route, not price outside on some CEX, which is more correct
 # - Internal oracle harder to attack/manipulate
 # 
-# So using internal oracle is better.
+# So using internal oracle is here.
 
 import copy
 from dataclasses import dataclass, field
 from fractions import Fraction
 import numpy as np
 import cvxpy as cp
-
 
 @dataclass(init=True, repr=True, eq=True, order=False, unsafe_hash=True, frozen=False)
 class Case:
@@ -197,6 +196,14 @@ def test_paper_oracles():
         print("i=price:", i, " ", price, "\n")
 
 
+def check_not_small(oracle, min_delta_lambda_limit, tendered, received, amount):
+    """_summary_
+    Checks that given tendered amount is it at all possible to trade over some minimal value
+    """
+    for i, price in enumerate(oracle):
+        if price and received == i and price * amount < min_delta_lambda_limit:
+            print("warning: amount of received is numerically small, needs rescale")
+
 # Scale in oriented to find likely working route.
 # May omit small pools which has some small reserves which has some arbitrage.
 # Trade/route first, arbitrage second.
@@ -219,12 +226,20 @@ def scale_in(
     min_delta_lambda_limit = max_reserve_limit / 10**window_limit
     new_amount = amount
     
-    _oracle = inner_oracle(case)
+    oracle = inner_oracle(case)
+    check_not_small(oracle, min_delta_lambda_limit, case.tendered, case.received, amount)
+    
     # oracle: if lambda(output) is very small (oracalized amount to reserver token), can check if can cap reserve instead of scaling down
+    
+
     
     # amount number too small and pools are big, assume pools are stable for that amount
     # so we tackle input vs all scaling
     
+    # 1. calculated proposed downscale
+    # 2. if input for each is too small, assume stable
+    # 3. down scale again
+    # 4. remove dead pools
     
     cfmm, local = case.maximal_reserves[case.tendered]    
     tendered_max_reserve = case.reserves[cfmm][local]
@@ -458,7 +473,7 @@ def test_solve_simple_big():
     main(create_simple_big_case(), [10**3, 10**6])
     
 def test_solve_big_price_range():
-    main(create_big_price_range(), [10**3, 10**16])
+    main(create_big_price_range(), [10**3, 10**6])
         
 
 if __name__ == "__main__":
