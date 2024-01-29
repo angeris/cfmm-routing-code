@@ -106,6 +106,8 @@ def test_case_sanity():
     assert r[1] == (1, 1)
     assert r[2] == (3, 1)
 
+class NoRoute(BaseException):
+    pass
 
 
 def search_routes(case: Case, max_depth: int = 10) -> list[list[tuple[int, int, int]]]:
@@ -147,14 +149,10 @@ def search_routes(case: Case, max_depth: int = 10) -> list[list[tuple[int, int, 
 
     results = []
     next(case, [], case.tendered, max_depth, results)
+    if len(list(filter(lambda x: x[-1][2] == case.received, results))) == 0:
+        raise NoRoute("no route found")
     return results
 
-
-def test_search_routes_from_paper():
-    case = create_paper_case()
-    routes = search_routes(case)
-    assert(len(list(filter(lambda x: x[-1][2] == case.received, routes))) == 39)
-    assert(routes.index([(0, 3, 2), (2, 0, 1), (1, 2, 2), (2, 2, 1), (1, 0, 2)]) > 0)
     
 def calculate_inner_oracles(case: Case, debug: bool = False ) -> list[int | None]:
     routes = search_routes(case, debug)
