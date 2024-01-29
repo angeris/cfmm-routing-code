@@ -98,17 +98,8 @@ def create_paper_case():
         [1] * 3,
     )
 
-
-def test_case_sanity():
-    case = create_paper_case()
-    r = case.maximal_reserves
-    assert r[0] == (3, 0)
-    assert r[1] == (1, 1)
-    assert r[2] == (3, 1)
-
 class NoRoute(BaseException):
     pass
-
 
 def search_routes(case: Case, max_depth: int = 10, debug: bool = True) -> list[list[tuple[int, int, int]]]:
     """_summary_
@@ -211,19 +202,20 @@ def check_not_small(oracle, min_delta_lambda_limit, tendered, received, amount):
 # Trade/route first, arbitrage second.
 # 
 # Cannot set feasibility tolerance to small value 1e-11 without GMP - using 1e-10.
-# `min_fraction_swapped` - assumed that will no go over venue if fraction is less than this of tendered token 
 def scale_in(
     amount: int, 
     case: Case, 
     max_reserve_limit_decimals: int = 8, 
     max_range_decimals: int = 12,
-    min_fraction_swapped : float = 0.0001,
+    min_swapped_ratio : float = 0.0001,
     min_cap_ratio : float = 0.00001,
     debug : bool = False,
 ):
     """_summary
     Returns new problem case to solve in scale.
     New problem and old problem can be used to scale back solution
+    `min_swapped_ratio` - assumed that will no go over venue if fraction is less than this of tendered token 
+    `min_cap_ratio` - to be considered zero
     """
     assert max_range_decimals > 0
     case = copy.deepcopy(case)
@@ -371,17 +363,6 @@ def create_simple_big_case():
         1,
         [1] * 2,
     )
-
-
-def test_scaling_when_there_is_none():
-    import deepdiff as dd
-
-    case = create_paper_case()
-    amount = 5
-    new_case, _new_amount = scale_in(amount, case)
-    r = dd.DeepDiff(case, new_case, ignore_order=False)
-    assert len(r.items()) == 0
-
 
 def test_scaling_big():
     import deepdiff as dd

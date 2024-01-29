@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from numerics import Case, NoRoute, calculate_inner_oracles, create_big_price_range, create_paper_case, oracalize_reserves, scale_in, search_routes, solve
-
+import deepdiff as dd
 
 def create_no_routes():
     """_summary_
@@ -116,3 +116,17 @@ def test_scale_in_single_stable_pool():
     case = create_single_stable_pool()
     solution = scale_in(1, case, debug = True)
     
+def test_scale_in_when_there_is_none():
+    case = create_paper_case()
+    amount = 5
+    new_case, new_amount = scale_in(amount, case)
+    r = dd.DeepDiff(case, new_case, ignore_order=False)
+    assert len(r.items()) == 0    
+    assert amount == new_amount    
+    
+def test_case_maximal_reserves_papers():
+    case = create_paper_case()
+    r = case.maximal_reserves
+    assert r[0] == (3, 0)
+    assert r[1] == (1, 1)
+    assert r[2] == (3, 1)    
