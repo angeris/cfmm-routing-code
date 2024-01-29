@@ -134,15 +134,15 @@ def test_scale_in_single_stable_pool():
 def test_scale_in_single_stable_huge_pool():
     case = create_single_stable_huge_pool()
     new_case, new_amount = scale_in(1, case, debug = True)
-    print(new_case)    
-    
-    
+    new_case.reserves[0][0] < case.reserves[0][0]
+    new_case.reserves[0][1] < case.reserves[0][1]
+    assert new_amount == 1
+        
 def test_scale_in_single_stable_pool_bigger_than_reservers():
     case = create_single_stable_pool()
-    new_case, new_amount = scale_in(10**8, case, debug = True)    
-    
-    assert new_amount < new_amount
-    # assert scale = 1, so it means that can solver smaller amount only
+    new_case, new_amount = scale_in(10**8, case, debug = True)
+    assert new_case.scale[case.tendered] == 1
+    assert new_amount < 10**8
     
 def test_scale_in_when_there_is_none():
     case = create_paper_case()
