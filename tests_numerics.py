@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from numerics import Case, NoRoute, calculate_inner_oracles, create_big_price_range, create_paper_case, search_routes
+from numerics import Case, NoRoute, calculate_inner_oracles, create_big_price_range, create_paper_case, oracalize_reserves, search_routes, solve
 
 
 def create_no_routes():
@@ -92,9 +92,7 @@ def test_calculate_inner_oracles_paper():
     case = create_paper_case()
     prices = calculate_inner_oracles(case, True)
     assert not any(x is None for x in prices)
-    for i, price in enumerate(prices):
-        print("i=price:", i, " ", price, "\n") 
-        
+    
 def test_calculate_inner_oracles_single_stable_pool():
     case = create_single_stable_pool()
     oracles = calculate_inner_oracles(case)
@@ -102,6 +100,18 @@ def test_calculate_inner_oracles_single_stable_pool():
     assert(oracles[0] == 1)
     assert(oracles[1] == 1)  
     
-
-                
-        
+def test_oracalize_reserves_paper():
+    case = create_paper_case()
+    prices = calculate_inner_oracles(case, False)
+    oracalized_reserves = oracalize_reserves(case, prices, True)
+    print(oracalized_reserves)
+    
+def test_oracalize_reserves_long():
+    case = create_long_route()
+    prices = calculate_inner_oracles(case, False)
+    oracalized_reserves = oracalize_reserves(case, prices, True)
+    print(oracalized_reserves)
+    
+def test_solve_long():
+    case = create_long_route()
+    solution = solve(case, [10], True)

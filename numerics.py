@@ -304,23 +304,18 @@ def scale_in(
 
     return case, new_amount
 
-def oracalize_reserves(case : Case, oracles : list[float | None]) -> list[list[float]]:
+def oracalize_reserves(case : Case, oracles : list[float], debug: bool = False) -> list[list[int]]:
     """_summary_
-        Given reservers and oracles, normalize all amounts to oracle price
+        Given reservers and oracles, normalize all amounts to oracle price.
+        Floors reserves
     """
+
     oracle_reserves = []
     for i, tokens in enumerate(case.local_indices):
         oracle_reserves.append([])
         for j, token in enumerate(tokens):
             oracle = oracles[token]
-            if oracle:
-                try:
-                    oracle_reserves[i].append(oracle * 1.0 * (1.0 * case.reserves[i][j]))
-                except Exception as e:
-                    print(f"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++{oracle} {i} {j} {case.reserves[i][j]}")
-                    raise e
-            else:
-                oracle_reserves[i].append(None)
+            oracle_reserves[i].append(oracle * case.reserves[i][j])
                 
     return oracle_reserves
 
@@ -415,7 +410,7 @@ def test_scaling_big():
     case = create_big_case_with_small_pool()
     check(case, 10**8, True, True, 10**6)
 
-def main(case=from_paper, amounts=amounts_from_paper):
+def solve(case=from_paper, amounts=amounts_from_paper):
     for _j, t in enumerate(amounts):
         case, t = scale_in(t, case)
         print(case)
@@ -479,6 +474,7 @@ def main(case=from_paper, amounts=amounts_from_paper):
                                                                 #lp/threads = 0
                                                                 #nlp/solver = ""
                                                                 #nlp/disable = FALSE
+                                                                # check tolerances
                                                                 })
         if prob.status == cp.INFEASIBLE:
             raise Exception(f"Problem status {prob.status}")
@@ -518,11 +514,11 @@ def test_oracle_big_price_range():
         print("i=price:", i, " ", price, "\n")
 
 def test_solve_simple_big():
-    main(create_simple_big_case(), [10**3, 10**6])
+    solve(create_simple_big_case(), [10**3, 10**6])
     
 def test_solve_big_price_range():
-    main(create_big_price_range(), [10**3, 10**6])
+    solve(create_big_price_range(), [10**3, 10**6])
         
 
 if __name__ == "__main__":
-    main()
+    solve()
