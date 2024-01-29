@@ -17,6 +17,7 @@
 import copy
 from dataclasses import dataclass, field
 from fractions import Fraction
+from itertools import count
 import numpy as np
 import cvxpy as cp
 import math
@@ -106,7 +107,8 @@ def test_case_sanity():
     assert r[2] == (3, 1)
 
 
-def search_routes(case: Case, max_depth: int = 10):
+
+def search_routes(case: Case, max_depth: int = 10) -> list[list[tuple[int, int, int]]]:
     """_summary_
     Builds oracle from existing data to tendered asset.
 
@@ -121,7 +123,7 @@ def search_routes(case: Case, max_depth: int = 10):
         path: list[tuple[int, int]],
         tendered: int,
         max_depth: int,
-        results: list[tuple[list[tuple[int, int, int]]]],
+        results: list[list[tuple[int, int, int]]],
         debug : bool = False,
     ):
         if len(path) > max_depth:
@@ -148,15 +150,13 @@ def search_routes(case: Case, max_depth: int = 10):
     return results
 
 
-def test_paper_routes():
+def test_search_routes_from_paper():
     case = create_paper_case()
     routes = search_routes(case)
-    print(len(routes))
-    for route in routes:
-        print("", route, "\n")
-
-
-def calcultate_inner_oracles(case: Case, debug: bool = False ) -> list[float | None]:
+    assert(len(list(filter(lambda x: x[-1][2] == case.received, routes))) == 39)
+    assert(routes.index([(0, 3, 2), (2, 0, 1), (1, 2, 2), (2, 2, 1), (1, 0, 2)]) > 0)
+    
+def calculate_inner_oracles(case: Case, debug: bool = False ) -> list[int | None]:
     routes = search_routes(case, debug)
     oracles: list[float | None] = [None] * case.n
     for i, _o in enumerate(oracles):
@@ -164,7 +164,7 @@ def calcultate_inner_oracles(case: Case, debug: bool = False ) -> list[float | N
             oracles[i] = 1.0
         else:
             issuance = 0
-            count = 0
+            total_issuance = 0
             for route in routes:
                 if route[-1][2] == i:
                     # reservers normalized oracle                    
@@ -179,20 +179,26 @@ def calcultate_inner_oracles(case: Case, debug: bool = False ) -> list[float | N
                             / case.reserves[pool][tendered]
                             # here can consider using fees
                         )
-                        
+                    
                     issuance += price * last
-                    count += last
-
+                    total_issuance += last
+                    # if debug:
+                    #     print(f"route: {route} {price} {last} {issuance} {total_issuance}")
+                    
             # reserves weighted averaging oracle
-            if count > 0:
-                oracles[i] = issuance / count
+            if debug:
+                print(f"{issuance} {total_issuance}")
+            if total_issuance > 0:
+                oracles[i] = issuance / total_issuance
+            elif debug:
+                print("warning: oracle is none")
 
     return oracles
 
 
 def test_paper_oracles():
     case = create_paper_case()
-    prices = calcultate_inner_oracles(case)
+    prices = calculate_inner_oracles(case)
     assert not any(x is None for x in prices)
     for i, price in enumerate(prices):
         print("i=price:", i, " ", price, "\n")
@@ -226,28 +232,28 @@ def scale_in(
     """
     assert max_range_decimals > 0
     case = copy.deepcopy(case)
-    max_reserve_limit = max_reserve_limit_decimals * 10**max_range_decimals
-    min_delta_lambda_limit = max_reserve_limit / 10**max_range_decimals
+    max_reserve_limit = 10**max_reserve_limit_decimals
+    min_delta_lambda_limit =  10**(max_reserve_limit - max_range_decimals)
     new_amount = amount
     
-    oracles = calcultate_inner_oracles(case)
+    oracles = calculate_inner_oracles(case, True)
     check_not_small(oracles, min_delta_lambda_limit, case.tendered, case.received, amount)
     
     min_cap = amount * min_cap_ratio
     
     # if lambda(output) is very small (oracalized amount to reserver token), can check if can cap reserve instead of scaling down
     # no ideal for arbitrage if pools is very skewed
-    oracle_reserves = oracalize_reserves(case, oracles)
-    print(oracle_reserves)
-    scale = [1] * case.m
-    for i, tokens in enumerate(case.local_indices):
-        for j, token in enumerate(tokens):
-            r = oracle_reserves[i][j]
-            if r > max_reserve_limit and r > min_cap: 
-                scale[i] = max(scale[i], max_reserve_limit / r)
-    for i, tokens in enumerate(case.local_indices):
-        for j, token in enumerate(tokens):
-            case.reserves[i][j] /= scale[i]
+    # oracle_reserves = oracalize_reserves(case, oracles)
+    # print(oracle_reserves)
+    # scale = [1] * case.m
+    # for i, tokens in enumerate(case.local_indices):
+    #     for j, token in enumerate(tokens):
+    #         r = oracle_reserves[i][j]
+    #         if r > max_reserve_limit and r > min_cap: 
+    #             scale[i] = max(scale[i], max_reserve_limit / r)
+    # for i, tokens in enumerate(case.local_indices):
+    #     for j, token in enumerate(tokens):
+    #         case.reserves[i][j] /= scale[i]
             
 
     # if reserver is big against oracle, cap it
@@ -512,7 +518,7 @@ def create_big_price_range():
     
 def test_oracle_big_price_range():
     case = create_big_price_range()
-    prices = calcultate_inner_oracles(case)
+    prices = calculate_inner_oracles(case)
     assert not any(x is None for x in prices)
     for i, price in enumerate(prices):
         print("i=price:", i, " ", price, "\n")
@@ -520,6 +526,7 @@ def test_oracle_big_price_range():
 def test_route_big_price_range():
     case = create_big_price_range()
     routes = search_routes(case)
+    
     print(routes)
     
 
