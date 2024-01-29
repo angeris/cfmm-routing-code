@@ -28,7 +28,22 @@ def create_single_stable_pool():
         list(range(n)),
         [[0, 1]], 
                 [
-                    [10**6, 10**6],
+                    [10**3, 10**3],
+                ],
+        ["Uniswap"],
+        np.array([1]),
+        0,
+        1,
+        [1] * n,
+    )
+
+def create_single_stable_huge_pool():
+    n = 2
+    return Case(
+        list(range(n)),
+        [[0, 1]], 
+                [
+                    [10**16, 10**16],
                 ],
         ["Uniswap"],
         np.array([1]),
@@ -115,6 +130,19 @@ def test_oracalize_reserves_long():
 def test_scale_in_single_stable_pool():
     case = create_single_stable_pool()
     solution = scale_in(1, case, debug = True)
+    
+def test_scale_in_single_stable_huge_pool():
+    case = create_single_stable_huge_pool()
+    new_case, new_amount = scale_in(1, case, debug = True)
+    print(new_case)    
+    
+    
+def test_scale_in_single_stable_pool_bigger_than_reservers():
+    case = create_single_stable_pool()
+    new_case, new_amount = scale_in(10**8, case, debug = True)    
+    
+    assert new_amount < new_amount
+    # assert scale = 1, so it means that can solver smaller amount only
     
 def test_scale_in_when_there_is_none():
     case = create_paper_case()

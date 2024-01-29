@@ -16,7 +16,6 @@
 
 import copy
 from dataclasses import dataclass, field
-from fractions import Fraction
 from itertools import count
 import numpy as np
 import cvxpy as cp
@@ -268,7 +267,9 @@ def scale_in(
                 for i, tokens in enumerate(case.local_indices):
                     if any(token == case.tendered for token in tokens):
                         # reduce reserves factor
-                        case.reserves[i] = case.reserves[i] / scale
+                        for j, reserve in enumerate(case.reserves[i]):
+                            
+                            case.reserves[i][j] = reserve / scale
                         # really better to make stable pools here
                         
 
