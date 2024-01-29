@@ -110,7 +110,7 @@ class NoRoute(BaseException):
     pass
 
 
-def search_routes(case: Case, max_depth: int = 10, debug = True) -> list[list[tuple[int, int, int]]]:
+def search_routes(case: Case, max_depth: int = 10, debug: bool = True) -> list[list[tuple[int, int, int]]]:
     """_summary_
     Finds all routes up `max_depth` from `tendered` asset.
     
@@ -128,7 +128,7 @@ def search_routes(case: Case, max_depth: int = 10, debug = True) -> list[list[tu
         results: list[list[tuple[int, int, int]]],
         debug : bool = False,
     ):
-        if len(path) > max_depth:
+        if len(path) >= max_depth:
             if debug:
                 print("max depth reached")
             return
@@ -139,7 +139,7 @@ def search_routes(case: Case, max_depth: int = 10, debug = True) -> list[list[tu
                         # we started from this, no need to jump into it in any pool - we are oracle, not arbitrage
                         if case.tendered != received:
                             n = (tendered, cfmm, received)
-                            if not n in path:
+                            if not n in path and not (n[2],n[1], n[0]) in path:
                                 # yeah, better use n-ary tree
                                 new_path = copy.deepcopy(path)
                                 new_path.append(n)
@@ -149,25 +149,26 @@ def search_routes(case: Case, max_depth: int = 10, debug = True) -> list[list[tu
     results = []
     next(case, [], case.tendered, max_depth, results, debug)
     if len(list(filter(lambda x: x[-1][2] == case.received, results))) == 0:
+        print(results)
         raise NoRoute("no route found")
     return results
 
     
-def calculate_inner_oracles(case: Case, debug: bool = False ) -> list[int | None]:
+def calculate_inner_oracles(case: Case, debug: bool = False ) -> list[float | None]:
     """
         Builds oracle from existing data to tendered asset.
     """
-    routes = search_routes(case, debug)
+    routes = search_routes(case, 10, debug)
     oracles: list[float | None] = [None] * case.n
     for i, _o in enumerate(oracles):
         if i == case.tendered:
-            oracles[i] = 1
+            oracles[i] = 1.0
         else:
-            issuance = 0
+            price_normalized_total_issuance = 0
             total_issuance = 0
             for route in routes:
                 if route[-1][2] == i:
-                    # reservers normalized oracle                    
+                    # reserves normalized oracle                    
                     price = 1
                     previous_reserve = 0
                     for tendered, pool, received in route:
@@ -180,16 +181,16 @@ def calculate_inner_oracles(case: Case, debug: bool = False ) -> list[int | None
                             # here can consider using fees
                         )
                     
-                    issuance += price * previous_reserve
+                    price_normalized_total_issuance += price * previous_reserve
                     total_issuance += previous_reserve
-                    # if debug:
-                    #     print(f"route: {route} {price} {last} {issuance} {total_issuance}")
+                    if debug:
+                        print(f"{price}")
                     
             # reserves weighted averaging oracle
             if debug:
-                print(f"{issuance} {total_issuance}")
+                print(f"{price_normalized_total_issuance} {total_issuance}")
             if total_issuance > 0:
-                oracles[i] = issuance / total_issuance
+                oracles[i] = price_normalized_total_issuance / total_issuance
             elif debug:
                 print("warning: oracle is none")
 
