@@ -110,11 +110,11 @@ class NoRoute(BaseException):
     pass
 
 
-def search_routes(case: Case, max_depth: int = 10) -> list[list[tuple[int, int, int]]]:
+def search_routes(case: Case, max_depth: int = 10, debug = True) -> list[list[tuple[int, int, int]]]:
     """_summary_
-    Builds oracle from existing data to tendered asset.
-
-    Finds all routes up `max_depth`.
+    Finds all routes up `max_depth` from `tendered` asset.
+    
+    Ensure there is at least one route to `received` asset.
 
     Improvement can be if both amount obtained and reserve before are larger than on this step, in this case stop routing over specific asset regardless of pool.
     Assuming that less hops (larger amount after fees) and large pools are optimal.
@@ -143,23 +143,25 @@ def search_routes(case: Case, max_depth: int = 10) -> list[list[tuple[int, int, 
                                 # yeah, better use n-ary tree
                                 new_path = copy.deepcopy(path)
                                 new_path.append(n)
-
                                 results.append(new_path)
                                 next(case, new_path, received, max_depth, results)
 
     results = []
-    next(case, [], case.tendered, max_depth, results)
+    next(case, [], case.tendered, max_depth, results, debug)
     if len(list(filter(lambda x: x[-1][2] == case.received, results))) == 0:
         raise NoRoute("no route found")
     return results
 
     
 def calculate_inner_oracles(case: Case, debug: bool = False ) -> list[int | None]:
+    """
+        Builds oracle from existing data to tendered asset.
+    """
     routes = search_routes(case, debug)
     oracles: list[float | None] = [None] * case.n
     for i, _o in enumerate(oracles):
         if i == case.tendered:
-            oracles[i] = 1.0
+            oracles[i] = 1
         else:
             issuance = 0
             total_issuance = 0
@@ -167,19 +169,19 @@ def calculate_inner_oracles(case: Case, debug: bool = False ) -> list[int | None
                 if route[-1][2] == i:
                     # reservers normalized oracle                    
                     price = 1
-                    last = 0
+                    previous_reserve = 0
                     for tendered, pool, received in route:
                         tendered = case.local_indices[pool].index(tendered)
                         received = case.local_indices[pool].index(received)
-                        last = case.reserves[pool][received];
+                        previous_reserve = case.reserves[pool][received];
                         price *= (
-                            last
+                            previous_reserve
                             / case.reserves[pool][tendered]
                             # here can consider using fees
                         )
                     
-                    issuance += price * last
-                    total_issuance += last
+                    issuance += price * previous_reserve
+                    total_issuance += previous_reserve
                     # if debug:
                     #     print(f"route: {route} {price} {last} {issuance} {total_issuance}")
                     
@@ -193,13 +195,6 @@ def calculate_inner_oracles(case: Case, debug: bool = False ) -> list[int | None
 
     return oracles
 
-
-def test_paper_oracles():
-    case = create_paper_case()
-    prices = calculate_inner_oracles(case)
-    assert not any(x is None for x in prices)
-    for i, price in enumerate(prices):
-        print("i=price:", i, " ", price, "\n")
 
 
 def check_not_small(oracle, min_delta_lambda_limit, tendered, received, amount):
@@ -520,13 +515,6 @@ def test_oracle_big_price_range():
     assert not any(x is None for x in prices)
     for i, price in enumerate(prices):
         print("i=price:", i, " ", price, "\n")
-    
-def test_route_big_price_range():
-    case = create_big_price_range()
-    routes = search_routes(case)
-    
-    print(routes)
-    
 
 def test_solve_simple_big():
     main(create_simple_big_case(), [10**3, 10**6])
