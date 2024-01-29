@@ -217,8 +217,9 @@ def scale_in(
     case: Case, 
     max_reserve_limit_decimals: int = 8, 
     max_range_decimals: int = 12,
-    min_fraction_swapped : Fraction = Fraction(1, 1_000),
-    min_cap_ratio : Fraction = Fraction(1, 10_000),
+    min_fraction_swapped : float = 0.0001,
+    min_cap_ratio : float = 0.00001,
+    debug : bool = False,
 ):
     """_summary
     Returns new problem case to solve in scale.
@@ -227,13 +228,14 @@ def scale_in(
     assert max_range_decimals > 0
     case = copy.deepcopy(case)
     max_reserve_limit = 10**max_reserve_limit_decimals
-    min_delta_lambda_limit =  10**(max_reserve_limit - max_range_decimals)
+    min_delta_lambda_limit = 10** (max_reserve_limit_decimals - max_range_decimals)
     new_amount = amount
-    
-    oracles = calculate_inner_oracles(case, True)
-    check_not_small(oracles, min_delta_lambda_limit, case.tendered, case.received, amount)
-    
     min_cap = amount * min_cap_ratio
+    
+    # oracles = calculate_inner_oracles(case, debug)
+    # check_not_small(oracles, min_delta_lambda_limit, case.tendered, case.received, amount)
+    #raise Exception("asd")
+    
     
     # if lambda(output) is very small (oracalized amount to reserver token), can check if can cap reserve instead of scaling down
     # no ideal for arbitrage if pools is very skewed
@@ -262,6 +264,7 @@ def scale_in(
     # 3. down scale again
     # 4. remove dead pools
     
+    print("==============cap============")
     cfmm, local = case.maximal_reserves[case.tendered]    
     tendered_max_reserve = case.reserves[cfmm][local]
     if tendered_max_reserve > max_reserve_limit:
@@ -275,9 +278,11 @@ def scale_in(
                         # reduce reserves factor
                         case.reserves[i] = case.reserves[i] / scale
                         # really better to make stable pools here
+                        
 
     # so just downscale all big pools
     # here we tackle general downscale of all things
+    print("==============downscale============")
     for r, (i, j) in enumerate(case.maximal_reserves):
         max_reserve = case.reserves[i][j]
         if max_reserve > max_reserve_limit:
@@ -297,6 +302,7 @@ def scale_in(
                     
 
     # if some reservers are numerically small, skip these pools
+    print("==============zeros============")
     for i, reserves in enumerate(case.reserves):
         if any(reserve < min_delta_lambda_limit for reserve in reserves):
             case.reserves[i] = np.zeros(len(reserves))
@@ -410,10 +416,13 @@ def test_scaling_big():
     case = create_big_case_with_small_pool()
     check(case, 10**8, True, True, 10**6)
 
-def solve(case=from_paper, amounts=amounts_from_paper):
+def solve(case=from_paper, amounts=amounts_from_paper, debug : bool = False):
     for _j, t in enumerate(amounts):
-        case, t = scale_in(t, case)
+        
         print(case)
+        raise Exception("stop")            
+        case, t = scale_in(t, case)
+
         current_assets = np.full(case.n, 0)
         current_assets[case.tendered] = t
 
@@ -465,7 +474,7 @@ def solve(case=from_paper, amounts=amounts_from_paper):
 
         # Set up and solve problem
         prob = cp.Problem(obj, cons)
-        prob.solve(verbose=True, solver=cp.SCIP, scip_params = { 
+        prob.solve(verbose=debug, solver=cp.SCIP, scip_params = { 
                                                                 "lp/checkstability" : "1",
                                                                 "lp/checkprimfeas" : "1", # influence feasibility
                                                                 # lp/checkdualfeas = TRUE   
