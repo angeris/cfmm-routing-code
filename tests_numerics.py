@@ -88,7 +88,6 @@ def test_search_routes_when_no():
 def test_search_routes_does_not_cares_prices():
     case = create_big_price_range()
     _routes = search_routes(case)    
-
     
 def test_search_route_long():
     case = create_long_route()
@@ -131,11 +130,25 @@ def test_scale_in_single_stable_pool():
     case = create_single_stable_pool()
     solution = scale_in(1, case, debug = True)
     
+def test_scale_in_long_route_tight_limits():
+    case = create_long_route()
+    new_case, new_amount = scale_in(1, case, debug = True, max_range_decimals= 4, max_reserve_limit_decimals= 3)    
+    print(new_case)
+    
+def test_scale_in_long_route_tight_limits_reverse():
+    case = create_long_route()
+    case.received = 0
+    case.tendered = 7
+    new_case, new_amount = scale_in(1, case, debug = True, max_range_decimals= 4, max_reserve_limit_decimals= 3)    
+    print(new_case)    
+    print(new_amount)    
+    
 def test_scale_in_single_stable_huge_pool():
     case = create_single_stable_huge_pool()
     new_case, new_amount = scale_in(1, case, debug = True)
     new_case.reserves[0][0] < case.reserves[0][0]
     new_case.reserves[0][1] < case.reserves[0][1]
+    assert new_case.scale[0] == 1
     assert new_amount == 1
         
 def test_scale_in_single_stable_pool_bigger_than_reservers():

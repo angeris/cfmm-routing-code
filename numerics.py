@@ -21,6 +21,26 @@ import numpy as np
 import cvxpy as cp
 import math
 
+
+
+def maximal_reserves(n, local_indices, reserves) -> list[tuple[int, int]]:
+    '''
+    Returns location of maxima reserve.
+    '''
+    maximal_reserves = [None] * n
+    for i, local in enumerate(local_indices):
+        for j, token in enumerate(local):
+            current = maximal_reserves[token]
+            if (
+                current is None
+                or reserves[i][j] > reserves[current[0]][current[1]]
+            ):
+                maximal_reserves[token] = (i, j)
+    assert not any(x is None for x in maximal_reserves)
+    return maximal_reserves
+
+
+
 @dataclass(init=True, repr=True, eq=True, order=False, unsafe_hash=True, frozen=False)
 class Case:
     """
@@ -60,19 +80,8 @@ class Case:
         """_summary_
         Get maximal reserves pool and position for each token
         """
-        maximal_reserves = [None] * self.n
-        for i, local in enumerate(self.local_indices):
-            for j, token in enumerate(local):
-                current = maximal_reserves[token]
-                if (
-                    current is None
-                    or self.reserves[i][j] > self.reserves[current[0]][current[1]]
-                ):
-                    maximal_reserves[token] = (i, j)
-        assert not any(x is None for x in maximal_reserves)
-        return maximal_reserves
-
-
+        return maximal_reserves(self.n, self.local_indices, self.reserves)
+    
 def create_paper_case():
     return Case(
         list(range(3)),
@@ -188,14 +197,25 @@ def calculate_inner_oracles(case: Case, debug: bool = False ) -> list[float | No
 
 
 
-def check_not_small(oracle, min_delta_lambda_limit, tendered, received, amount):
+def check_not_small(oracle, min_cap_ratio, tendered, received, amount):
     """_summary_
     Checks that given tendered amount is it at all possible to trade over some minimal value
     """
     for i, price in enumerate(oracle):
-        if price and received == i and price * amount < min_delta_lambda_limit:
+        if received == i and price * amount < min_cap_ratio:
             print("warning: amount of received is numerically small, needs rescale")
 
+
+class Ctx():
+    max_reserve_limit_decimals: int = 8 
+    max_range_decimals: int = 12
+    min_swapped_ratio : float = 0.0001
+    
+    min_cap_ratio : float = 0.00001    
+    """_summary_
+    If reserves are relatively big against tendered amount, cap them
+    """
+    
 # Scale in oriented to find likely working route.
 # May omit small pools which has some small reserves which has some arbitrage.
 # Trade/route first, arbitrage second.
@@ -204,10 +224,7 @@ def check_not_small(oracle, min_delta_lambda_limit, tendered, received, amount):
 def scale_in(
     amount: int, 
     case: Case, 
-    max_reserve_limit_decimals: int = 8, 
-    max_range_decimals: int = 12,
-    min_swapped_ratio : float = 0.0001,
-    min_cap_ratio : float = 0.00001,
+    ctx: Ctx = Ctx()
     debug : bool = False,
 ):
     """_summary
@@ -216,21 +233,33 @@ def scale_in(
     `min_swapped_ratio` - assumed that will no go over venue if fraction is less than this of tendered token 
     `min_cap_ratio` - to be considered zero
     """
+    
     assert max_range_decimals > 0
     case = copy.deepcopy(case)
     max_reserve_limit = 10**max_reserve_limit_decimals
-    min_delta_lambda_limit = 10** (max_reserve_limit_decimals - max_range_decimals)
+    min_delta_lambda_limit : float = 10**(max_reserve_limit_decimals - max_range_decimals)
     new_amount = amount
     min_cap = amount * min_cap_ratio
     
-    # oracles = calculate_inner_oracles(case, debug)
-    # check_not_small(oracles, min_delta_lambda_limit, case.tendered, case.received, amount)
-    #raise Exception("asd")
+    oracles = calculate_inner_oracles(case, debug)
+    check_not_small(oracles, min_cap_ratio, case.tendered, case.received, amount)
+    oracalized_reserves = oracalize_reserves(case, oracles)
+    max_oracalized_reserves = maximal_reserves(case.n, case.local_indices,oracalized_reserves)
+    
+    # cap big reserves relative to our input using oracle comparison
+    for i, (r_i, r_j) in max_oracalized_reserves:
+        oracle_reserve = oracalized_reserves[r_i][r_j]
+        if amount/oracle_reserve/ > max_reserve_limit:
+            
+            
+        
     
     
     # if lambda(output) is very small (oracalized amount to reserver token), can check if can cap reserve instead of scaling down
     # no ideal for arbitrage if pools is very skewed
-    # oracle_reserves = oracalize_reserves(case, oracles)
+    print(f"=-=-=-=-=-=-=-=-{oracalized_reserves}==============")
+    print(f"=-=-=-=-=-=-=-=-{max_oracalized_reserves}==============")
+    raise Exception("asd")
     # print(oracle_reserves)
     # scale = [1] * case.m
     # for i, tokens in enumerate(case.local_indices):
@@ -267,9 +296,9 @@ def scale_in(
                 for i, tokens in enumerate(case.local_indices):
                     if any(token == case.tendered for token in tokens):
                         # reduce reserves factor
-                        for j, reserve in enumerate(case.reserves[i]):
+                        for j, oracle_reserve in enumerate(case.reserves[i]):
                             
-                            case.reserves[i][j] = reserve / scale
+                            case.reserves[i][j] = oracle_reserve / scale
                         # really better to make stable pools here
                         
 
@@ -297,7 +326,7 @@ def scale_in(
     # if some reservers are numerically small, skip these pools
     print("==============zeros============")
     for i, reserves in enumerate(case.reserves):
-        if any(reserve < min_delta_lambda_limit for reserve in reserves):
+        if any(oracle_reserve < min_delta_lambda_limit for oracle_reserve in reserves):
             case.reserves[i] = np.zeros(len(reserves))
             case.venues[i] = "skip"
 
@@ -400,11 +429,10 @@ def test_scaling_big():
 
 def solve(case=from_paper, amounts=amounts_from_paper, debug : bool = False):
     for _j, t in enumerate(amounts):
-        
-        print(case)
-        raise Exception("stop")            
         case, t = scale_in(t, case)
-
+        if debug:
+            print(case)
+        
         current_assets = np.full(case.n, 0)
         current_assets[case.tendered] = t
 
