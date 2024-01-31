@@ -20,7 +20,7 @@ from itertools import count
 import numpy as np
 import cvxpy as cp
 import math
-
+import itertools
 
 
 def maximal_reserves(n, local_indices, reserves) -> list[tuple[int, int]]:
@@ -81,6 +81,21 @@ class Case:
         Get maximal reserves pool and position for each token
         """
         return maximal_reserves(self.n, self.local_indices, self.reserves)
+
+    @property
+    def range(self) -> tuple[int, int]:
+        """
+        Returns minimal and maximal values of reservers.
+        Ignores zero reserves.    
+        """
+        low = 0
+        high = 0
+        high = max(x for row in self.reserves for x in row)
+        low = min(x for row in self.reserves for x in row if x != 0)
+        
+        assert low > 0
+        assert high > 0
+        return (low, high)
     
 def create_paper_case():
     return Case(
@@ -207,129 +222,104 @@ def check_not_small(oracle, min_cap_ratio, tendered, received, amount):
 
 
 class Ctx():
+    amount: int
+    """
+    Amount of tendered token
+    """
+    
     max_reserve_limit_decimals: int = 8 
     max_range_decimals: int = 12
     min_swapped_ratio : float = 0.0001
+    """
+    Controls what is minimal possible amount of split of tendered token on each step 
+    """
     
     min_cap_ratio : float = 0.00001    
     """_summary_
-    If reserves are relatively big against tendered amount, cap them
+    If reserves are relatively big against tendered amount, cap them to zero.
+    Remove from routing basically.
     """
     
-# Scale in oriented to find likely working route.
-# May omit small pools which has some small reserves which has some arbitrage.
-# Trade/route first, arbitrage second.
-# 
-# Cannot set feasibility tolerance to small value 1e-11 without GMP - using 1e-10.
+    @property
+    def max_reserve_limit(self):
+        return 10**self.max_reserve_limit_decimals
+    
+    @property
+    def range_limit(self):
+        return 10**self.max_reserve_limit_decimals - self.min_delta_lambda_limit
+    
+    @property 
+    def min_delta_lambda_limit(self):
+        """
+        range limit
+        """
+        return 10**(self.max_reserve_limit_decimals - self.max_range_decimals)
+
+    @property
+    def min_swapped_limit(self):
+    
+        return self.amount * self.min_swapped_ratio    
+    
+    def __init__(self):
+        assert self.max_range_decimals > 0
+        assert self.max_reserve_limit_decimals > 0    
+        
+        
+
 def scale_in(
-    amount: int, 
     case: Case, 
-    ctx: Ctx = Ctx()
+    ctx: Ctx = Ctx(),
     debug : bool = False,
 ):
     """_summary
     Returns new problem case to solve in scale.
     New problem and old problem can be used to scale back solution
-    `min_swapped_ratio` - assumed that will no go over venue if fraction is less than this of tendered token 
-    `min_cap_ratio` - to be considered zero
+    Scale in oriented to find likely working route.
+    May omit small pools which has some small reserves which has some arbitrage.
+    Trade/route first, arbitrage second.
+    Avoids infeasibility, example:
+    >Cannot set feasibility tolerance to small value 1e-11 without GMP - using 1e-10.    
     """
     
-    assert max_range_decimals > 0
     case = copy.deepcopy(case)
-    max_reserve_limit = 10**max_reserve_limit_decimals
-    min_delta_lambda_limit : float = 10**(max_reserve_limit_decimals - max_range_decimals)
-    new_amount = amount
-    min_cap = amount * min_cap_ratio
+    new_amount = ctx.amount
     
     oracles = calculate_inner_oracles(case, debug)
-    check_not_small(oracles, min_cap_ratio, case.tendered, case.received, amount)
+    check_not_small(oracles, ctx.min_cap_ratio, case.tendered, case.received, ctx.amount)
     oracalized_reserves = oracalize_reserves(case, oracles)
-    max_oracalized_reserves = maximal_reserves(case.n, case.local_indices,oracalized_reserves)
     
     # cap big reserves relative to our input using oracle comparison
-    for i, (r_i, r_j) in max_oracalized_reserves:
-        oracle_reserve = oracalized_reserves[r_i][r_j]
-        if amount/oracle_reserve/ > max_reserve_limit:
-            
-            
-        
-    
-    
-    # if lambda(output) is very small (oracalized amount to reserver token), can check if can cap reserve instead of scaling down
-    # no ideal for arbitrage if pools is very skewed
-    print(f"=-=-=-=-=-=-=-=-{oracalized_reserves}==============")
-    print(f"=-=-=-=-=-=-=-=-{max_oracalized_reserves}==============")
-    raise Exception("asd")
-    # print(oracle_reserves)
-    # scale = [1] * case.m
-    # for i, tokens in enumerate(case.local_indices):
-    #     for j, token in enumerate(tokens):
-    #         r = oracle_reserves[i][j]
-    #         if r > max_reserve_limit and r > min_cap: 
-    #             scale[i] = max(scale[i], max_reserve_limit / r)
-    # for i, tokens in enumerate(case.local_indices):
-    #     for j, token in enumerate(tokens):
-    #         case.reserves[i][j] /= scale[i]
-            
-
-    # if reserver is big against oracle, cap it
-    # if pool is 1T USD, and tendered 1USD, can cap it to 1B USD for sure (including normalized assets) 
-    
-    
-    # amount number too small and pools are big, assume pools are stable for that amount
-    # so we tackle input vs all scaling
-    
-    # 1. calculated proposed downscale
-    # 2. if input for each is too small, assume stable
-    # 3. down scale again
-    # 4. remove dead pools
-    
-    print("==============cap============")
-    cfmm, local = case.maximal_reserves[case.tendered]    
-    tendered_max_reserve = case.reserves[cfmm][local]
-    if tendered_max_reserve > max_reserve_limit:
-        scale = tendered_max_reserve / max_reserve_limit
-        if scale > 1:
-            new_amount = amount / scale
-            if new_amount < min_delta_lambda_limit:
-                new_amount = amount  # it will not be downscaled
-                for i, tokens in enumerate(case.local_indices):
-                    if any(token == case.tendered for token in tokens):
-                        # reduce reserves factor
-                        for j, oracle_reserve in enumerate(case.reserves[i]):
-                            
-                            case.reserves[i][j] = oracle_reserve / scale
-                        # really better to make stable pools here
-                        
-
-    # so just downscale all big pools
-    # here we tackle general downscale of all things
-    print("==============downscale============")
-    for r, (i, j) in enumerate(case.maximal_reserves):
-        max_reserve = case.reserves[i][j]
-        if max_reserve > max_reserve_limit:
-            # oracle: here we can check oracle, if value is too small, can scale up reserve up to limit
-            # oracle: if after scale up, it become big, can consider cap  reserve (if possible)        
-            scale = max_reserve / max_reserve_limit
-            for k, token in enumerate(case.local_indices):
-                for (
-                    p,
-                    t,
-                ) in enumerate(token):
-                    if r == t:
-                        # all reservers of specific token downscaled
-                        case.reserves[k][p] = case.reserves[k][p] / scale
-                        case.scale[t] = scale
-                        break
-                    
-
-    # if some reservers are numerically small, skip these pools
-    print("==============zeros============")
-    for i, reserves in enumerate(case.reserves):
-        if any(oracle_reserve < min_delta_lambda_limit for oracle_reserve in reserves):
-            case.reserves[i] = np.zeros(len(reserves))
+    # oracle can be sloppy if we relax limit enough
+    for i, oracalized_amounts in enumerate(oracalized_reserves):
+        in_scale = min(ctx.amount/oracalized_amount for oracalized_amount in oracalized_amounts)            
+        if in_scale < ctx.min_cap_ratio:
+            # assuming that max_reserve_limit is relaxed not to kill possible arbitrage,
+            # but give good numerics
+            for j, _original_amounts in enumerate(case.reserves[i]):
+                case.reserves[i][j] *= (in_scale / ctx.max_reserve_limit)
+                
+    # we have very small pools again input amount
+    # so we consider no go for these at all
+    # again, assuming we relax limit not to miss arbitrage
+    for i, oracalized_amounts in enumerate(oracalized_reserves):
+        if any(oracalized_amount < ctx.min_swapped_limit for oracalized_amount in oracalized_amounts):
+            case.reserves[i] = [0] * len(oracalized_amounts)
             case.venues[i] = "skip"
-
+        
+    # so we can now zoom into range now
+    low, high = case.range
+    zoom = max((high - low) / ctx.range_limit, 1)
+    zoomed_low = low / zoom
+    zoomed_high = low / zoom
+    new_amount /= zoom
+    for i, _ in enumerate(case.reserves):
+        case.reserves[i] = [x / zoom for x in case.reserves[i]]
+    case.scale = [zoom] * case.n
+    
+    if debug:          
+        print(oracalize_reserves)
+    
+    
     return case, new_amount
 
 def oracalize_reserves(case : Case, oracles : list[float], debug: bool = False) -> list[list[int]]:
