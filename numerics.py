@@ -281,12 +281,12 @@ def scale_in(
     >Cannot set feasibility tolerance to small value 1e-11 without GMP - using 1e-10.    
     """
     
-    case = copy.deepcopy(case)
+    new_case = copy.deepcopy(case)
     new_amount = ctx.amount
     
-    oracles = calculate_inner_oracles(case, debug)
-    check_not_small(oracles, ctx.min_cap_ratio, case.tendered, case.received, ctx.amount)
-    oracalized_reserves = oracalize_reserves(case, oracles)
+    oracles = calculate_inner_oracles(new_case, debug)
+    check_not_small(oracles, ctx.min_cap_ratio, new_case.tendered, new_case.received, ctx.amount)
+    oracalized_reserves = oracalize_reserves(new_case, oracles)
     
     # cap big reserves relative to our input using oracle comparison
     # oracle can be sloppy if we relax limit enough
@@ -295,32 +295,38 @@ def scale_in(
         if in_scale < ctx.min_cap_ratio:
             # assuming that max_reserve_limit is relaxed not to kill possible arbitrage,
             # but give good numerics
-            for j, _original_amounts in enumerate(case.reserves[i]):
-                case.reserves[i][j] *= (in_scale / ctx.max_reserve_limit)
+            for j, _original_amounts in enumerate(new_case.reserves[i]):
+                new_case.reserves[i][j] *= (in_scale / ctx.max_reserve_limit)
                 
     # we have very small pools again input amount
     # so we consider no go for these at all
     # again, assuming we relax limit not to miss arbitrage
     for i, oracalized_amounts in enumerate(oracalized_reserves):
         if any(oracalized_amount < ctx.min_swapped_limit for oracalized_amount in oracalized_amounts):
-            case.reserves[i] = [0] * len(oracalized_amounts)
-            case.venues[i] = "skip"
+            new_case.reserves[i] = [0] * len(oracalized_amounts)
+            new_case.venues[i] = "skip"
         
     # so we can now zoom into range now
-    low, high = case.range
+    # we cannot shift low/range with some subtract shift to zero so
+    # as it will change reserers hence exchange problem
+    low, high = new_case.range
     zoom = max((high - low) / ctx.range_limit, 1)
-    zoomed_low = low / zoom
-    zoomed_high = low / zoom
+    if debug:  
+        zoomed_low = low / zoom
+        zoomed_high = low / zoom
+        print(f"original range: {case.range}")
+        print(f"capped range: {low} {high}")
+        print(f"zoomed range: {zoomed_low} {zoomed_high}")
     new_amount /= zoom
-    for i, _ in enumerate(case.reserves):
-        case.reserves[i] = [x / zoom for x in case.reserves[i]]
-    case.scale = [zoom] * case.n
+    for i, _ in enumerate(new_case.reserves):
+        new_case.reserves[i] = [x / zoom for x in new_case.reserves[i]]
+    new_case.scale = [zoom] * new_case.n
     
     if debug:          
         print(oracalize_reserves)
     
     
-    return case, new_amount
+    return new_case, new_amount
 
 def oracalize_reserves(case : Case, oracles : list[float], debug: bool = False) -> list[list[int]]:
     """_summary_
