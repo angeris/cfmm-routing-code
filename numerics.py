@@ -227,7 +227,7 @@ class Ctx():
     Amount of tendered token
     """
     
-    max_reserve_limit_decimals: int = 8 
+    max_limit_decimals: int = 8 
     max_range_decimals: int = 12
     min_swapped_ratio : float = 0.0001
     """
@@ -242,18 +242,18 @@ class Ctx():
     
     @property
     def max_reserve_limit(self):
-        return 10**self.max_reserve_limit_decimals
+        return 10**self.max_limit_decimals
     
     @property
     def range_limit(self):
-        return 10**self.max_reserve_limit_decimals - self.min_delta_lambda_limit
+        return 10**self.max_limit_decimals - self.min_delta_lambda_limit
     
     @property 
     def min_delta_lambda_limit(self):
         """
         range limit
         """
-        return 10**(self.max_reserve_limit_decimals - self.max_range_decimals)
+        return 10**(self.max_limit_decimals - self.max_range_decimals)
 
     @property
     def min_swapped_limit(self):
@@ -262,7 +262,7 @@ class Ctx():
     
     def __init__(self):
         assert self.max_range_decimals > 0
-        assert self.max_reserve_limit_decimals > 0    
+        assert self.max_limit_decimals > 0    
         
         
 
@@ -296,7 +296,7 @@ def scale_in(
             # assuming that max_reserve_limit is relaxed not to kill possible arbitrage,
             # but give good numerics
             for j, _original_amounts in enumerate(new_case.reserves[i]):
-                new_case.reserves[i][j] *= (in_scale / ctx.max_reserve_limit)
+                new_case.reserves[i][j] *= (in_scale / ctx.min_cap_ratio)
                 
     # we have very small pools again input amount
     # so we consider no go for these at all
@@ -308,12 +308,13 @@ def scale_in(
         
     # so we can now zoom into range now
     # we cannot shift low/range with some subtract shift to zero so
-    # as it will change reserers hence exchange problem
+    # but we can ensure that 
+    # as it will change reserves because exchange problem
     low, high = new_case.range
-    zoom = max((high - low) / ctx.range_limit, 1)
+    zoom = max(high / ctx.max_reserve_limit, 1)
     if debug:  
         zoomed_low = low / zoom
-        zoomed_high = low / zoom
+        zoomed_high = high / zoom
         print(f"original range: {case.range}")
         print(f"capped range: {low} {high}")
         print(f"zoomed range: {zoomed_low} {zoomed_high}")
