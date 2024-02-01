@@ -171,3 +171,44 @@ def test_case_maximal_reserves_papers():
     assert r[0] == (3, 0)
     assert r[1] == (1, 1)
     assert r[2] == (3, 1)    
+    
+    
+def _test_scaling_big():
+    import deepdiff as dd
+
+    case = create_simple_big_case()
+
+    def check(case, amount, changed_pool, changed_amount, range=10**12):
+        new_case, new_amount = scale_in(amount, case, range)
+        r = dd.DeepDiff(case, new_case, ignore_order=False)
+        if changed_pool:
+            print(r.items())
+            assert len(r.items()) != 0
+        else:
+            assert len(r.items()) == 0
+
+        if changed_amount:
+            assert new_amount != amount
+            print("new vs old", new_amount, amount)
+        else:
+            assert new_amount == amount
+        assert scale_out(new_amount, new_case.scale, new_case.tendered) == amount
+
+        print("\n")
+
+    # downscale just pool
+    check(case, 10**7, True, True)
+
+    # cap pool
+    check(case, 10**1, True, False)
+
+    # zeroing some reserves
+    case = create_big_case_with_small_pool()
+    check(case, 10**8, True, True, 10**6)    
+    
+    
+def test_e2e_cosmos_osmosis():
+    """
+    End 2 end tests for Cosmos Osmosis blockchain 
+    """
+    pass

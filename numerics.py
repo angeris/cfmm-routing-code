@@ -260,15 +260,15 @@ class Ctx():
     
         return self.amount * self.min_swapped_ratio    
     
-    def __init__(self):
+    def __init__(self, amount : int):
+        self.amount = amount
         assert self.max_range_decimals > 0
         assert self.max_limit_decimals > 0    
         
-        
-
+    
 def scale_in(
     case: Case, 
-    ctx: Ctx = Ctx(),
+    ctx: Ctx,
     debug : bool = False,
 ):
     """_summary
@@ -288,6 +288,9 @@ def scale_in(
     check_not_small(oracles, ctx.min_cap_ratio, new_case.tendered, new_case.received, ctx.amount)
     oracalized_reserves = oracalize_reserves(new_case, oracles)
     
+    if debug:          
+        print(oracalized_reserves)
+        
     # cap big reserves relative to our input using oracle comparison
     # oracle can be sloppy if we relax limit enough
     for i, oracalized_amounts in enumerate(oracalized_reserves):
@@ -322,9 +325,6 @@ def scale_in(
     for i, _ in enumerate(new_case.reserves):
         new_case.reserves[i] = [x / zoom for x in new_case.reserves[i]]
     new_case.scale = [zoom] * new_case.n
-    
-    if debug:          
-        print(oracalize_reserves)
     
     
     return new_case, new_amount
@@ -390,39 +390,6 @@ def create_simple_big_case():
         1,
         [1] * 2,
     )
-
-def test_scaling_big():
-    import deepdiff as dd
-
-    case = create_simple_big_case()
-
-    def check(case, amount, changed_pool, changed_amount, range=10**12):
-        new_case, new_amount = scale_in(amount, case, range)
-        r = dd.DeepDiff(case, new_case, ignore_order=False)
-        if changed_pool:
-            print(r.items())
-            assert len(r.items()) != 0
-        else:
-            assert len(r.items()) == 0
-
-        if changed_amount:
-            assert new_amount != amount
-            print("new vs old", new_amount, amount)
-        else:
-            assert new_amount == amount
-        assert scale_out(new_amount, new_case.scale, new_case.tendered) == amount
-
-        print("\n")
-
-    # downscale just pool
-    check(case, 10**7, True, True)
-
-    # cap pool
-    check(case, 10**1, True, False)
-
-    # zeroing some reserves
-    case = create_big_case_with_small_pool()
-    check(case, 10**8, True, True, 10**6)
 
 def solve(case=from_paper, amounts=amounts_from_paper, debug : bool = False):
     for _j, t in enumerate(amounts):
