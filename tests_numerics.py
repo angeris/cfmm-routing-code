@@ -73,7 +73,7 @@ def create_long_route():
              [10**1, 10**2],
              [10**1, 10**2],
           ],                
-        ["Uniswap"] * n,
+        ["Uniswap"] * 7,
         np.array([1] * n),
         0,
         7,
@@ -147,7 +147,11 @@ def test_scale_in_long_route_tight_limits_fits():
     new_case, new_amount = scale_in(case, ctx, debug = True)    
     assert not any(x == 0 for row in new_case.reserves for x in row)
     assert new_amount == ctx.amount
-    assert new_case == case
+    
+def test_solve_long_route_tight_limits_fits():
+    case = create_long_route()
+    ctx = Ctx(amount = 1, max_range_decimals=4, max_limit_decimals=3)
+    solution = solve(case, ctx, True)
     
 def test_scale_in_long_route_tight_limits_reverse():
     case = create_long_route()

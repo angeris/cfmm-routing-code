@@ -303,8 +303,8 @@ def scale_in(
             # assuming that max_reserve_limit is relaxed not to kill possible arbitrage,
             # but give good numericss
             for j, _original_amounts in enumerate(new_case.reserves[i]):
-                print(f"{i} {j} {in_scale / ctx.min_cap_ratio}")
-                new_case.reserves[i][j] = new_case.reserves[i][j] * (in_scale / ctx.min_cap_ratio)
+                capped = new_case.reserves[i][j] * (in_scale / ctx.min_cap_ratio)
+                new_case.reserves[i][j] = capped
                 
     if debug: 
         print(f"capped={new_case.reserves}")
@@ -338,6 +338,7 @@ def scale_in(
     new_case.scale = [zoom] * new_case.n
     
     if debug:
+        print(f"zoomed={new_case.reserves}")
         print(case)
         print(new_case)
     
@@ -405,9 +406,8 @@ def create_simple_big_case():
         [1] * 2,
     )
 
-def solve(case=from_paper, amounts=amounts_from_paper, debug : bool = False):
-    for _j, t in enumerate(amounts):
-        case, t = scale_in(t, case)
+def solve(case: Case, ctx: Ctx, debug : bool = False):
+        case, t = scale_in(case, ctx, debug)
         if debug:
             print(case)
         
@@ -481,9 +481,6 @@ def solve(case=from_paper, amounts=amounts_from_paper, debug : bool = False):
         )
         for i in range(case.m):
             print(f"Market {i}, delta: {deltas[i].value}, lambda: {lambdas[i].value}")
-
-
-
 
 def create_big_price_range():
     return Case(
