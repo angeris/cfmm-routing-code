@@ -221,6 +221,7 @@ def check_not_small(oracle, min_cap_ratio, tendered, received, amount):
             print("warning: amount of received is numerically small, needs rescale")
 
 
+@dataclass(init = True,repr=True,frozen=True, )
 class Ctx():
     amount: int
     """
@@ -260,8 +261,7 @@ class Ctx():
     
         return self.amount * self.min_swapped_ratio    
     
-    def __init__(self, amount : int):
-        self.amount = amount
+    def __post_init__(self):
         assert self.max_range_decimals > 0
         assert self.max_limit_decimals > 0    
         
@@ -288,8 +288,10 @@ def scale_in(
     check_not_small(oracles, ctx.min_cap_ratio, new_case.tendered, new_case.received, ctx.amount)
     oracalized_reserves = oracalize_reserves(new_case, oracles)
     
-    if debug:          
-        print(oracalized_reserves)
+    if debug: 
+        print("==================reserves===================")         
+        print(f"original={case.reserves}")
+        print(f"oracalized={oracalized_reserves}")
         
     # cap big reserves relative to our input using oracle comparison
     # oracle can be sloppy if we relax limit enough
@@ -326,6 +328,9 @@ def scale_in(
         new_case.reserves[i] = [x / zoom for x in new_case.reserves[i]]
     new_case.scale = [zoom] * new_case.n
     
+    if debug:
+        print(case)
+        print(new_case)
     
     return new_case, new_amount
 

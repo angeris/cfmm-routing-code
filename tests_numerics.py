@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from numerics import Case, NoRoute, calculate_inner_oracles, create_big_price_range, create_paper_case, oracalize_reserves, scale_in, search_routes, solve
+from numerics import Case, Ctx, NoRoute, calculate_inner_oracles, create_big_price_range, create_paper_case, oracalize_reserves, scale_in, search_routes, solve
 import deepdiff as dd
 
 def create_no_routes():
@@ -128,12 +128,17 @@ def test_oracalize_reserves_long():
     
 def test_scale_in_single_stable_pool():
     case = create_single_stable_pool()
-    solution = scale_in(1, case, debug = True)
+    ctx = Ctx(amount = 1)
+    new_case, new_amount  = scale_in(case, ctx , debug = True)
+    assert new_amount == ctx.amount
+    assert new_case == case
     
-def test_scale_in_long_route_tight_limits():
+def test_scale_in_long_route_tight_limits_fits():
     case = create_long_route()
-    new_case, new_amount = scale_in(1, case, debug = True, max_range_decimals= 4, max_reserve_limit_decimals= 3)    
-    print(new_case)
+    ctx = Ctx(amount = 1, max_range_decimals=4, max_limit_decimals=3)
+    new_case, new_amount = scale_in(case, ctx, debug = True)    
+    assert new_amount == ctx.amount
+    assert new_case == case
     
 def test_scale_in_long_route_tight_limits_reverse():
     case = create_long_route()
