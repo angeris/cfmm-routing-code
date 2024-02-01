@@ -17,7 +17,7 @@ Here is proposed algorithm.
 
 We can run forward only algorithm of depth N from start token to target token.
 
-Oracle is built using inverse length, direct reservers weighting averaging across all pools.
+Oracle is built using inverse length, direct reservers weighting averaging across all venues.
 
 So inner oracle accounts for price along possible routes.
 
@@ -25,17 +25,54 @@ Alternative is using external oracle not discussed here.
 
 ### Cap big pools
 
-cap big pools up to degree relative to tendered amount (we do not care tiny slippage)  - uses oracle ok
-eliminate small pools relative to tendered amount(we do not care tiny routes up to some degree) - uses oracle ok
-zoom all numbers to fit biggest pool into range
-UPDATED: detect small number but important tokens pools (via oracle)
-bump all such pools by factor until minimal  high price token pool in range(assuming big pool is in range too). So update here is that we do not bump using oracle, but we bump the token in all places using minimal factor possible to move token pools into range.
-solve
-if any bad still, backups (not coded):
-8.1. use oracle to skew these assets, assuming it is ok for now as oracles are good
-8.2. if we replace all such tiny amounts pools from uniswap to balancer (with weight) and replace tiny values with constrains with weights, we can assymetircally scale important tokens (skew). but if this is better needs many simulations to prove it is better at all and/or to have PhD optimization in math to tell if it is really better (until PhD will tell to run tons of simulations).  but I do not care. I use 8.1. But 8.2 is right question to answers by somebody later (edited) 
-:black_heart:
-1
+So we know relative price on tendered asset to reservers.
 
-23:34
-that is for optimal solver engine approach
+Assuming that slippage (change in settlement price induced by settlements along the routes)
+
+is neglectable if reserver much more bigger,
+
+we just cap reserves in all big venues up to limit.
+
+Here we okey with sloppy oracle, not precise with big mistake.
+
+### Eliminate small pools
+
+If some pool is tiny fraction of tendered assets,
+
+we remove that pools from search space.
+
+Sloppy oracle is ok here too.
+
+### Zoom
+
+Zoom all numbers to fit biggest pool into range
+
+### (Optional) Scale up important tokens
+
+Detect small reservers in some venues.
+ 
+Scale up these by some factor in all venues.
+
+If largest reserver will not be upper than limit, retain rescale.
+
+So we try to make some small numeric important tokens bigger.
+
+As you may recall we did not eliminated such pools via oracle before.
+
+### (Optional) Oracle rescale
+
+In presence of high quality oracle we could scale all pools and scale on this.
+
+Here is high risk to loose arbitrage.
+
+### (Optional) Weight
+
+We could replace some venues to be weighted, so can skew weight instead value of reserve.
+
+### Solve
+
+Run solver engine.
+
+### Scale out
+
+Return values to original scale.
