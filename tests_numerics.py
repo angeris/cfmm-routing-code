@@ -186,8 +186,8 @@ def test_scale_in_long_route_tight_limits_fits():
     
 def test_solve_single_stable_10x_pools():
     case = create_single_stable_10x_pools()
-    ctx = Ctx(amount = 1, max_range_decimals=4, max_limit_decimals=3)
-    received = solve(case, ctx, True)
+    ctx = Ctx(amount = 1, max_range_decimals=4, max_limit_decimals=4)
+    received = solve(case, ctx, True, True)
     assert received[0] < 10.0
     assert 9.99 < received[0]
         

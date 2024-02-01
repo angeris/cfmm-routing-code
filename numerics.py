@@ -40,7 +40,53 @@ def maximal_reserves(n, local_indices, reserves) -> list[tuple[int, int]]:
     return maximal_reserves
 
 
+@dataclass(init = True,repr=True,frozen=True, )
+class Ctx():
+    amount: int
+    """
+    Amount of tendered token
+    """
+    
+    max_limit_decimals: int = 8 
+    max_range_decimals: int = 12
+    min_swapped_ratio : float = 0.0001
+    """
+    Controls what is minimal possible amount of split of tendered token on each step 
+    """
+    
+    min_cap_ratio : float = 0.00001    
+    """_summary_
+    If reserves are relatively big against tendered amount, cap them to zero.
+    Remove from routing basically.
+    """
+    
+    @property
+    def max_reserve_limit(self):
+        return 10**self.max_limit_decimals
+    
+    @property
+    def range_limit(self):
+        return 10**self.max_limit_decimals - self.min_delta_lambda_limit
+    
+    @property 
+    def min_delta_lambda_limit(self):
+        """
+        range limit
+        """
+        return 10**(self.max_limit_decimals - self.max_range_decimals)
 
+    @property
+    def min_swapped_limit(self):
+        return self.amount * self.min_swapped_ratio    
+    
+    def __post_init__(self):
+        assert self.amount > 0
+        assert self.max_range_decimals > 0
+        assert self.max_limit_decimals > 0 
+        assert self.min_cap_ratio < 1   
+        assert self.min_swapped_ratio < 1   
+        
+    
 @dataclass(init=True, repr=True, eq=True, order=False, unsafe_hash=True, frozen=False)
 class Case:
     """
@@ -96,6 +142,12 @@ class Case:
         assert low > 0
         assert high > 0
         return (low, high)
+    
+    def within(self, ctx: Ctx):
+        high = max(x for row in self.reserves for x in row)
+        low = min(x for row in self.reserves for x in row if x != 0)
+        return high <= ctx.max_limit_decimals
+        
     
 def create_paper_case():
     return Case(
@@ -220,54 +272,6 @@ def check_not_small(oracle, min_cap_ratio, tendered, received, amount):
         if received == i and price * amount < min_cap_ratio:
             print("warning: amount of received is numerically small, needs rescale")
 
-
-@dataclass(init = True,repr=True,frozen=True, )
-class Ctx():
-    amount: int
-    """
-    Amount of tendered token
-    """
-    
-    max_limit_decimals: int = 8 
-    max_range_decimals: int = 12
-    min_swapped_ratio : float = 0.0001
-    """
-    Controls what is minimal possible amount of split of tendered token on each step 
-    """
-    
-    min_cap_ratio : float = 0.00001    
-    """_summary_
-    If reserves are relatively big against tendered amount, cap them to zero.
-    Remove from routing basically.
-    """
-    
-    @property
-    def max_reserve_limit(self):
-        return 10**self.max_limit_decimals
-    
-    @property
-    def range_limit(self):
-        return 10**self.max_limit_decimals - self.min_delta_lambda_limit
-    
-    @property 
-    def min_delta_lambda_limit(self):
-        """
-        range limit
-        """
-        return 10**(self.max_limit_decimals - self.max_range_decimals)
-
-    @property
-    def min_swapped_limit(self):
-        return self.amount * self.min_swapped_ratio    
-    
-    def __post_init__(self):
-        assert self.amount > 0
-        assert self.max_range_decimals > 0
-        assert self.max_limit_decimals > 0 
-        assert self.min_cap_ratio < 1   
-        assert self.min_swapped_ratio < 1   
-        
-    
 def scale_in(
     case: Case, 
     ctx: Ctx,
@@ -324,23 +328,25 @@ def scale_in(
     # we cannot shift low/range with some subtract shift to zero so
     # but we can ensure that 
     # as it will change reserves because exchange problem
-    low, high = new_case.range
-    zoom = max(high / ctx.max_reserve_limit, 1)
-    if debug:  
-        zoomed_low = low / zoom
-        zoomed_high = high / zoom
-        print(f"original range: {case.range}")
-        print(f"capped range: {low} {high}")
-        print(f"zoomed range: {zoomed_low} {zoomed_high}")
-    new_amount /= zoom
-    for i, _ in enumerate(new_case.reserves):
-        new_case.reserves[i] = [x / zoom for x in new_case.reserves[i]]
-    new_case.scale = [zoom] * new_case.n
+    if not new_case.within(ctx):
     
-    if debug:
-        print(f"zoomed={new_case.reserves}")
-        print(case)
-        print(new_case)
+        low, high = new_case.range
+        zoom = max(high / ctx.max_reserve_limit, 1)
+        if debug:  
+            zoomed_low = low / zoom
+            zoomed_high = high / zoom
+            print(f"original range: {case.range}")
+            print(f"capped range: {low} {high}")
+            print(f"zoomed range: {zoomed_low} {zoomed_high}")
+        new_amount /= zoom
+        for i, _ in enumerate(new_case.reserves):
+            new_case.reserves[i] = [x / zoom for x in new_case.reserves[i]]
+        new_case.scale = [zoom] * new_case.n
+        
+        if debug:
+            print(f"zoomed={new_case.reserves}")
+            print(case)
+            print(new_case)
     
     return new_case, new_amount
 
@@ -405,9 +411,8 @@ def create_simple_big_case():
         [1] * 2,
     )
 
-def solve(case: Case, ctx: Ctx, debug : bool = False, scale: bool =  False):        
-        #scale_in(case, ctx, debug)
-        scaled_case, t = case, ctx.amount
+def solve(case: Case, ctx: Ctx, debug : bool = False, force_scale: bool =  False):            
+        scaled_case, t = scale_in(case, ctx, debug) if force_scale else (case, ctx.amount)
         
         current_assets = np.full(scaled_case.n, 0)
         current_assets[scaled_case.tendered] = t
@@ -487,7 +492,7 @@ def solve(case: Case, ctx: Ctx, debug : bool = False, scale: bool =  False):
 # Market 5, delta: [303.98685617 227.04684725], lambda: [214.06688494 317.03883797]
 # Market 6, delta: [310.1101635  236.71611974], lambda: [220.11817277 326.71531875]
 
-        received_amount = scale_out(psi.value[scaled_case.received], scaled_case.scale, scaled_case.received) if scale else psi.value[scaled_case.received] 
+        received_amount = scale_out(psi.value[scaled_case.received], scaled_case.scale, scaled_case.received) if force_scale else psi.value[scaled_case.received] 
         if debug:
             print(
                 f"Total received value: {received_amount}"
