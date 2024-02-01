@@ -15,7 +15,15 @@ Here is proposed algorithm.
 
 ### Find sloppy oracle
 
+We can run forward only algorithm of depth N from start token to target token.
 
+Oracle is built using inverse length, direct reservers weighting averaging across all pools.
+
+So inner oracle accounts for price along possible routes.
+
+Alternative is using external oracle not discussed here.  
+
+### Cap big pools
 
 cap big pools up to degree relative to tendered amount (we do not care tiny slippage)  - uses oracle ok
 eliminate small pools relative to tendered amount(we do not care tiny routes up to some degree) - uses oracle ok
