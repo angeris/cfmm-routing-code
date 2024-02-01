@@ -36,6 +36,25 @@ def create_single_stable_pool():
         1,
         [1] * n,
     )
+    
+def create_single_stable_10x_pools():
+    n = 3
+    return Case(
+        list(range(n)),
+        [
+            [0, 1],
+            [1, 2],
+            ], 
+                [
+                    [10**3, 10**4],
+                    [10**3, 10**4],
+                ],
+        ["Uniswap"] * (n-1),
+        np.array([1] * (n-1)),
+        0,
+        1,
+        [1] * n,
+    )    
 
 def create_single_stable_huge_pool():
     n = 2
@@ -73,7 +92,7 @@ def create_long_route():
              [10**1, 10**2],
              [10**1, 10**2],
           ],                
-        ["Uniswap"] * 7,
+        ["Uniswap"] * (n - 1),
         np.array([1] * n),
         0,
         7,
@@ -128,6 +147,23 @@ def test_oracalize_reserves_paper():
     oracalized_reserves = oracalize_reserves(case, prices, True)
     print(oracalized_reserves)
     
+def test_oracalize_single_stable_pool():
+    case = create_single_stable_pool()
+    prices = calculate_inner_oracles(case, False)
+    oracalized_reserves = oracalize_reserves(case, prices, True)
+    assert oracalized_reserves[0][0] == case.reserves[0][0]  
+    assert oracalized_reserves[0][1] == case.reserves[0][1]
+    
+    
+def test_oracalize_single_stable_10x_pools():
+    case = create_single_stable_10x_pools()
+    prices = calculate_inner_oracles(case, False)
+    oracalized_reserves = oracalize_reserves(case, prices, True)
+    assert oracalized_reserves[0][0] == case.reserves[0][0]  
+    assert oracalized_reserves[0][1] == case.reserves[0][1] / 10.0  
+    assert oracalized_reserves[1][0] == case.reserves[1][0] / 10.0  
+    assert oracalized_reserves[1][1] == case.reserves[1][1] / 100.0  
+            
 def test_oracalize_reserves_long():
     case = create_long_route()
     prices = calculate_inner_oracles(case, False)
@@ -148,6 +184,12 @@ def test_scale_in_long_route_tight_limits_fits():
     assert not any(x == 0 for row in new_case.reserves for x in row)
     assert new_amount == ctx.amount
     
+def test_solve_single_stable_10x_pools():
+    case = create_single_stable_10x_pools()
+    ctx = Ctx(amount = 1, max_range_decimals=4, max_limit_decimals=3)
+    solution = solve(case, ctx, True)
+    
+        
 def test_solve_long_route_tight_limits_fits():
     case = create_long_route()
     ctx = Ctx(amount = 1, max_range_decimals=4, max_limit_decimals=3)

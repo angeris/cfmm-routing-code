@@ -298,12 +298,12 @@ def scale_in(
     # cap big reserves relative to our input using oracle comparison
     # oracle can be sloppy if we relax limit enough
     for i, oracalized_amounts in enumerate(oracalized_reserves):
-        in_scale = min(ctx.amount/oracalized_amount for oracalized_amount in oracalized_amounts)            
-        if in_scale < ctx.min_cap_ratio:
+        ratio = min(ctx.amount/oracalized_amount for oracalized_amount in oracalized_amounts)            
+        if ratio < ctx.min_cap_ratio:
             # assuming that max_reserve_limit is relaxed not to kill possible arbitrage,
             # but give good numericss
             for j, _original_amounts in enumerate(new_case.reserves[i]):
-                capped = new_case.reserves[i][j] * (in_scale / ctx.min_cap_ratio)
+                capped = new_case.reserves[i][j] * (ratio / ctx.min_cap_ratio)
                 new_case.reserves[i][j] = capped
                 
     if debug: 
@@ -349,13 +349,12 @@ def oracalize_reserves(case : Case, oracles : list[float], debug: bool = False) 
         Given reservers and oracles, normalize all amounts to oracle price.
         Floors reserves
     """
-
     oracle_reserves = []
     for i, tokens in enumerate(case.local_indices):
         oracle_reserves.append([])
         for j, token in enumerate(tokens):
             oracle = oracles[token]
-            oracle_reserves[i].append(oracle * case.reserves[i][j])
+            oracle_reserves[i].append(case.reserves[i][j] / oracle)
                 
     return oracle_reserves
 
@@ -406,62 +405,65 @@ def create_simple_big_case():
         [1] * 2,
     )
 
-def solve(case: Case, ctx: Ctx, debug : bool = False):
-        case, t = scale_in(case, ctx, debug)
-        if debug:
-            print(case)
+def solve(case: Case, ctx: Ctx, debug : bool = False, scale: bool =  False):        
+        #scale_in(case, ctx, debug)
+        scaled_case, t = case, ctx.amount
         
-        current_assets = np.full(case.n, 0)
-        current_assets[case.tendered] = t
+        current_assets = np.full(scaled_case.n, 0)
+        current_assets[scaled_case.tendered] = t
 
+        if debug:
+            print(scaled_case)
+            print(current_assets)
+        
         # Build local-global matrices
         A = []
-        for l in case.local_indices:
+        for l in scaled_case.local_indices:
             n_i = len(l)
-            A_i = np.zeros((case.n, n_i))
+            A_i = np.zeros((scaled_case.n, n_i))
             for i, idx in enumerate(l):
                 A_i[idx, i] = 1
             A.append(A_i)
 
         # Build variables
-        deltas = [cp.Variable(len(l), nonneg=True) for l in case.local_indices]
-        lambdas = [cp.Variable(len(l), nonneg=True) for l in case.local_indices]
+        deltas = [cp.Variable(len(l), nonneg=True) for l in scaled_case.local_indices]
+        lambdas = [cp.Variable(len(l), nonneg=True) for l in scaled_case.local_indices]
 
         psi = cp.sum([A_i @ (L - D) for A_i, D, L in zip(A, deltas, lambdas)])
 
         # Objective is to trade t of asset tendered for a maximum amount of asset received
-        obj = cp.Maximize(psi[case.received])
+        obj = cp.Maximize(psi[scaled_case.received])
 
         # Reserves after trade
         new_reserves = [
             R + gamma_i * D - L
-            for R, gamma_i, D, L in zip(case.reserves, case.fees, deltas, lambdas)
+            for R, gamma_i, D, L in zip(scaled_case.reserves, scaled_case.fees, deltas, lambdas)
         ]
 
         # Trading function constraints
-        cons = []
-        for i, venue in enumerate(case.venues):
+        constraints = []
+        for i, venue in enumerate(scaled_case.venues):
             if venue == "Balancer":
-                cons.append(
+                constraints.append(
                     cp.geo_mean(new_reserves[i], p=np.array([3, 2, 1]))
-                    >= cp.geo_mean(case.reserves[i], p=np.array([3, 2, 1]))
+                    >= cp.geo_mean(scaled_case.reserves[i], p=np.array([3, 2, 1]))
                 )
             elif venue == "Uniswap":
-                cons.append(
-                    cp.geo_mean(new_reserves[i]) >= cp.geo_mean(case.reserves[i])
+                constraints.append(
+                    cp.geo_mean(new_reserves[i]) >= cp.geo_mean(scaled_case.reserves[i])
                 )
             elif venue == "Constant Sum":
-                cons.append(cp.sum(new_reserves[i]) >= cp.sum(case.reserves[i]))
-                cons.append(new_reserves[i] >= 0)
+                constraints.append(cp.sum(new_reserves[i]) >= cp.sum(scaled_case.reserves[i]))
+                constraints.append(new_reserves[i] >= 0)
             else:
-                cons.append(deltas[i] == 0)
-                cons.append(lambdas[i] == 0)
+                constraints.append(deltas[i] == 0)
+                constraints.append(lambdas[i] == 0)
 
         # Allow all assets at hand to be traded
-        cons.append(psi + current_assets >= 0)
+        constraints.append(psi + current_assets >= 0)
 
         # Set up and solve problem
-        prob = cp.Problem(obj, cons)
+        prob = cp.Problem(obj, constraints)
         prob.solve(verbose=debug, solver=cp.SCIP, scip_params = { 
                                                                 "lp/checkstability" : "1",
                                                                 "lp/checkprimfeas" : "1", # influence feasibility
@@ -476,11 +478,23 @@ def solve(case: Case, ctx: Ctx, debug : bool = False):
         if prob.status == cp.INFEASIBLE:
             raise Exception(f"Problem status {prob.status}")
 
-        print(
-            f"Total received value: {scale_out(psi.value[case.received], case.scale, case.received)}"
-        )
-        for i in range(case.m):
-            print(f"Market {i}, delta: {deltas[i].value}, lambda: {lambdas[i].value}")
+# Total received value: 89.99919901058979
+# Market 0, delta: [192.13662427 195.64422704], lambda: [191.13662428 204.73513591]
+# Market 1, delta: [204.64006664 196.98209889], lambda: [195.54915791 244.60114519]
+# Market 2, delta: [247.70684589 205.95323482], lambda: [200.08779998 288.59786233]
+# Market 3, delta: [285.89962528 209.50620317], lambda: [203.25499786 298.7122691 ]
+# Market 4, delta: [299.91014253 217.01487672], lambda: [210.7040766  306.93484793]
+# Market 5, delta: [303.98685617 227.04684725], lambda: [214.06688494 317.03883797]
+# Market 6, delta: [310.1101635  236.71611974], lambda: [220.11817277 326.71531875]
+
+        received_amount = scale_out(psi.value[scaled_case.received], scaled_case.scale, scaled_case.received) if scale else psi.value[scaled_case.received] 
+        if debug:
+            print(
+                f"Total received value: {received_amount}"
+            )
+            for i in range(scaled_case.m):
+                print(f"Market {i}, delta: {deltas[i].value}, lambda: {lambdas[i].value}, delta-lambda: {deltas[i].value - lambdas[i].value}")
+        return received_amount, deltas, lambdas, scaled_case, t
 
 def create_big_price_range():
     return Case(
