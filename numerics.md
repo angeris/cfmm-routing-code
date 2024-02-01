@@ -35,6 +35,8 @@ we just cap reserves in all big venues up to limit.
 
 Here we okey with sloppy oracle, not precise with big mistake.
 
+Assumes that pools disbalance in big pools is small.
+
 ### Eliminate small pools
 
 If some pool is tiny fraction of tendered assets,

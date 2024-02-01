@@ -64,7 +64,15 @@ def create_long_route():
          [5, 6],
          [6, 7],
          ],            
-         [[10**1, 10**2]] * 7,                
+         [
+             [10**1, 10**2],
+             [10**1, 10**2],
+             [10**1, 10**2],
+             [10**1, 10**2],
+             [10**1, 10**2],
+             [10**1, 10**2],
+             [10**1, 10**2],
+          ],                
         ["Uniswap"] * n,
         np.array([1] * n),
         0,
@@ -137,6 +145,7 @@ def test_scale_in_long_route_tight_limits_fits():
     case = create_long_route()
     ctx = Ctx(amount = 1, max_range_decimals=4, max_limit_decimals=3)
     new_case, new_amount = scale_in(case, ctx, debug = True)    
+    assert not any(x == 0 for row in new_case.reserves for x in row)
     assert new_amount == ctx.amount
     assert new_case == case
     

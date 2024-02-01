@@ -258,12 +258,14 @@ class Ctx():
 
     @property
     def min_swapped_limit(self):
-    
         return self.amount * self.min_swapped_ratio    
     
     def __post_init__(self):
+        assert self.amount > 0
         assert self.max_range_decimals > 0
-        assert self.max_limit_decimals > 0    
+        assert self.max_limit_decimals > 0 
+        assert self.min_cap_ratio < 1   
+        assert self.min_swapped_ratio < 1   
         
     
 def scale_in(
@@ -290,7 +292,7 @@ def scale_in(
     
     if debug: 
         print("==================reserves===================")         
-        print(f"original={case.reserves}")
+        print(f"original={new_case.reserves}")
         print(f"oracalized={oracalized_reserves}")
         
     # cap big reserves relative to our input using oracle comparison
@@ -299,10 +301,14 @@ def scale_in(
         in_scale = min(ctx.amount/oracalized_amount for oracalized_amount in oracalized_amounts)            
         if in_scale < ctx.min_cap_ratio:
             # assuming that max_reserve_limit is relaxed not to kill possible arbitrage,
-            # but give good numerics
+            # but give good numericss
             for j, _original_amounts in enumerate(new_case.reserves[i]):
-                new_case.reserves[i][j] *= (in_scale / ctx.min_cap_ratio)
+                print(f"{i} {j} {in_scale / ctx.min_cap_ratio}")
+                new_case.reserves[i][j] = new_case.reserves[i][j] * (in_scale / ctx.min_cap_ratio)
                 
+    if debug: 
+        print(f"capped={new_case.reserves}")
+                        
     # we have very small pools again input amount
     # so we consider no go for these at all
     # again, assuming we relax limit not to miss arbitrage
@@ -311,6 +317,9 @@ def scale_in(
             new_case.reserves[i] = [0] * len(oracalized_amounts)
             new_case.venues[i] = "skip"
         
+    if debug: 
+        print(f"eliminated={new_case.reserves}")
+                
     # so we can now zoom into range now
     # we cannot shift low/range with some subtract shift to zero so
     # but we can ensure that 
