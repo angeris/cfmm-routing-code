@@ -187,13 +187,14 @@ def test_scale_in_long_route_tight_limits_fits():
 def test_solve_single_stable_10x_pools():
     case = create_single_stable_10x_pools()
     ctx = Ctx(amount = 1, max_range_decimals=4, max_limit_decimals=3)
-    solution = solve(case, ctx, True)
-    
+    received = solve(case, ctx, True)
+    assert received[0] < 10.0
+    assert 9.99 < received[0]
         
 def test_solve_long_route_tight_limits_fits():
     case = create_long_route()
     ctx = Ctx(amount = 1, max_range_decimals=4, max_limit_decimals=3)
-    solution = solve(case, ctx, True)
+    solution, _ = solve(case, ctx, True)
     
 def test_scale_in_long_route_tight_limits_reverse():
     case = create_long_route()
