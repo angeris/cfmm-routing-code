@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from numerics import Case, Ctx, NoRoute, calculate_inner_oracles, create_big_price_range, create_paper_case, oracalize_reserves, scale_in, search_routes, solve
+from numerics import Case, Ctx, Infeasible, NoRoute, calculate_inner_oracles,  oracalize_reserves, scale_in, search_routes, solve
 import deepdiff as dd
 
 def create_no_routes():
@@ -209,13 +209,13 @@ def test_scale_in_single_stable_huge_pool():
     new_case, new_amount = scale_in(1, case, debug = True)
     new_case.reserves[0][0] < case.reserves[0][0]
     new_case.reserves[0][1] < case.reserves[0][1]
-    assert new_case.scale[0] == 1
+    assert new_case.scale_mul[0] == 1
     assert new_amount == 1
         
 def test_scale_in_single_stable_pool_bigger_than_reservers():
     case = create_single_stable_pool()
     new_case, new_amount = scale_in(10**8, case, debug = True)
-    assert new_case.scale[case.tendered] == 1
+    assert new_case.scale_mul[case.tendered] == 1
     assert new_amount < 10**8
     
 def test_scale_in_when_there_is_none():
@@ -253,7 +253,7 @@ def _test_scaling_big():
             print("new vs old", new_amount, amount)
         else:
             assert new_amount == amount
-        assert scale_out(new_amount, new_case.scale, new_case.tendered) == amount
+        assert scale_out(new_amount, new_case.scale_mul, new_case.tendered) == amount
 
         print("\n")
 
@@ -268,8 +268,131 @@ def _test_scaling_big():
     check(case, 10**8, True, True, 10**6)    
     
     
-def test_e2e_cosmos_osmosis():
-    """
-    End 2 end tests for Cosmos Osmosis blockchain 
-    """
-    pass
+def test_solve_e2e_cosmos_osmosis():
+   """
+   End 2 end tests for Cosmos Osmosis blockchain 
+   """
+   def create_cosmos_osmosis():
+    n = 4
+    return Case(
+        list(range(n)),
+        [[0, 1], # pica 10^12/ uosmo 10^6
+        [1, 2], # uosmo / atom 10^6
+        [1, 3]], # uosmo / weth 10^18
+        
+                [
+                    [78506501538365410000, 789911113937],
+                    [6053000017874, 1073547057476],         
+                    [744663130529, 526087962684253400000],                                              
+                ],
+        ["Uniswap"] * (n-1),
+        np.array([1] * (n - 1)),
+        0,
+        1,
+        [1] * n,
+    )
+   case = create_cosmos_osmosis()
+   ctx = Ctx(amount = 10**12) # 1 PICA, 10^12 ppica
+   with pytest.raises(Infeasible):       
+     _received = solve(case, ctx, True, False)
+   received = solve(case, ctx, True, True)
+   
+   print("===================================== PICA ETH=======================================================")
+   case = create_cosmos_osmosis()
+   case.received = 3
+   ctx = Ctx(amount = 10**12 * 100 * 2000) # 1 ETH in PICA
+   received = solve(case, ctx, True, True)
+   
+#    assert received[0] < 10.0
+#    assert 9.99 < received[0]
+
+
+def create_big_case_with_small_pool():
+    return Case(
+        list(range(2)),
+        [[0, 1], [0, 1]],
+        list(
+            map(
+                np.array,
+                [
+                    [10**12, 10**12],
+                    [10**0, 10**6],
+                ],
+            )
+        ),
+        ["Uniswap", "Uniswap"],
+        np.array([0.99, 0.99]),
+        0,
+        1,
+        [1] * 2,
+    )
+    
+def create_paper_case():
+    return Case(
+        list(range(3)),
+        [[0, 1, 2], [0, 1], [1, 2], [0, 2], [0, 2]],
+        list(
+            map(
+                np.array,
+                [
+                    [3, 0.2, 1],
+                    [10, 1],
+                    [1, 10],
+                    # Note that there is arbitrage in the next two pools:
+                    [20, 50],
+                    [10, 10],
+                ],
+            )
+        ),
+        ["Balancer", "Uniswap", "Uniswap", "Uniswap", "Constant Sum"],
+        np.array([0.98, 0.99, 0.96, 0.97, 0.99]),
+        0,
+        2,
+        [1] * 3,
+    )
+    
+
+
+def create_simple_big_case():
+    return Case(
+        list(range(2)),
+        [[0, 1]],
+        list(map(np.array, [[10**18, 10**13]])),
+        ["Uniswap"],
+        np.array([0.99]),
+        0,
+        1,
+        [1] * 2,
+    )
+
+
+def create_big_price_range():
+    return Case(
+        list(range(3)),
+        [
+            [0, 1],
+            [1, 2],
+        ],
+        list(map(np.array, [
+            [10**4, 10**12],
+            [10**12, 10**14],
+            ])),
+        ["Uniswap", "Uniswap"],
+        np.array([1.0, 1.0]),
+        0,
+        2,
+        [1] * 3,
+    )
+    
+def test_oracle_big_price_range():
+    case = create_big_price_range()
+    prices = calculate_inner_oracles(case)
+    assert not any(x is None for x in prices)
+    for i, price in enumerate(prices):
+        print("i=price:", i, " ", price, "\n")
+
+def test_solve_simple_big():
+    solve(create_simple_big_case(), [10**3, 10**6])
+    
+def test_solve_big_price_range():
+    solve(create_big_price_range(), [10**3, 10**6])

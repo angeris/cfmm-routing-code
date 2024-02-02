@@ -16,6 +16,7 @@
 
 import copy
 from dataclasses import dataclass, field
+import functools
 from itertools import count
 import numpy as np
 import cvxpy as cp
@@ -109,7 +110,7 @@ class Case:
     tendered: int
     received: int
 
-    scale: list[float]
+    scale_mul: list[float]
 
     # cardinality universe tokens
     @property
@@ -148,32 +149,10 @@ class Case:
         low = min(x for row in self.reserves for x in row if x != 0)
         return high <= ctx.max_limit_decimals
         
-    
-def create_paper_case():
-    return Case(
-        list(range(3)),
-        [[0, 1, 2], [0, 1], [1, 2], [0, 2], [0, 2]],
-        list(
-            map(
-                np.array,
-                [
-                    [3, 0.2, 1],
-                    [10, 1],
-                    [1, 10],
-                    # Note that there is arbitrage in the next two pools:
-                    [20, 50],
-                    [10, 10],
-                ],
-            )
-        ),
-        ["Balancer", "Uniswap", "Uniswap", "Uniswap", "Constant Sum"],
-        np.array([0.98, 0.99, 0.96, 0.97, 0.99]),
-        0,
-        2,
-        [1] * 3,
-    )
-
 class NoRoute(BaseException):
+    pass
+
+class Infeasible(BaseException):
     pass
 
 def search_routes(case: Case, max_depth: int = 10, debug: bool = True) -> list[list[tuple[int, int, int]]]:
@@ -220,41 +199,45 @@ def search_routes(case: Case, max_depth: int = 10, debug: bool = True) -> list[l
     return results
 
     
-def calculate_inner_oracles(case: Case, debug: bool = False ) -> list[float | None]:
+def calculate_inner_oracles(case: Case, debug: bool = False) -> list[float | None]:
     """
         Builds oracle from existing data to tendered asset.
+        Divide asset to get its amount in tendered
     """
     routes = search_routes(case, 10, debug)
+    if debug:
+        print(routes)
     oracles: list[float | None] = [None] * case.n
     for i, _o in enumerate(oracles):
         if i == case.tendered:
             oracles[i] = 1.0
         else:
+            if debug:   
+                print("============ oracle =============== ")
             price_normalized_total_issuance = 0
             total_issuance = 0
             for route in routes:
                 if route[-1][2] == i:
+                    print(f"route for {i}")
                     # reserves normalized oracle                    
-                    price = 1
-                    previous_reserve = 0
+                    prices = []
                     for tendered, pool, received in route:
                         tendered = case.local_indices[pool].index(tendered)
                         received = case.local_indices[pool].index(received)
-                        previous_reserve = case.reserves[pool][received];
-                        price *= (
-                            previous_reserve
-                            / case.reserves[pool][tendered]
-                            # here can consider using fees
-                        )
-                    
-                    price_normalized_total_issuance += price * previous_reserve
-                    total_issuance += previous_reserve
+                        tendered_amount = case.reserves[pool][tendered];
+                        received_amount = case.reserves[pool][received];                        
+                        prices.append((tendered_amount, received_amount))
                     if debug:
-                        print(f"{price}")
+                        print(f"prices={prices}")
                     
+                    route_received = prices[-1][1]
+                    price = functools.reduce(lambda x, y: x * y, [x[1] / x[0] for x in prices])
+                    price_normalized_total_issuance += price * route_received
+                    total_issuance += route_received
+                    if debug:
+                        print(f"{price_normalized_total_issuance / total_issuance} = {price_normalized_total_issuance} / {total_issuance}")
+                
             # reserves weighted averaging oracle
-            if debug:
-                print(f"{price_normalized_total_issuance} {total_issuance}")
             if total_issuance > 0:
                 oracles[i] = price_normalized_total_issuance / total_issuance
             elif debug:
@@ -293,11 +276,15 @@ def scale_in(
     oracles = calculate_inner_oracles(new_case, debug)
     check_not_small(oracles, ctx.min_cap_ratio, new_case.tendered, new_case.received, ctx.amount)
     oracalized_reserves = oracalize_reserves(new_case, oracles)
+    max_oracalized_reserves = maximal_reserves(new_case.n, new_case.local_indices, oracalized_reserves)
     
     if debug: 
         print("==================reserves===================")         
         print(f"original={new_case.reserves}")
         print(f"oracalized={oracalized_reserves}")
+        print(f"oracles={oracles}")
+        print(f"predicted={new_amount* oracles[new_case.received]}")
+        print(f"max_oracalized_reserves={max_oracalized_reserves}")
         
     # cap big reserves relative to our input using oracle comparison
     # oracle can be sloppy if we relax limit enough
@@ -305,10 +292,11 @@ def scale_in(
         ratio = min(ctx.amount/oracalized_amount for oracalized_amount in oracalized_amounts)            
         if ratio < ctx.min_cap_ratio:
             # assuming that max_reserve_limit is relaxed not to kill possible arbitrage,
-            # but give good numericss
+            # but give good numerics
             for j, _original_amounts in enumerate(new_case.reserves[i]):
                 capped = new_case.reserves[i][j] * (ratio / ctx.min_cap_ratio)
                 new_case.reserves[i][j] = capped
+    # assert that capped have same weighted ratio
                 
     if debug: 
         print(f"capped={new_case.reserves}")
@@ -324,29 +312,29 @@ def scale_in(
     if debug: 
         print(f"eliminated={new_case.reserves}")
                 
-    # so we can now zoom into range now
-    # we cannot shift low/range with some subtract shift to zero so
-    # but we can ensure that 
-    # as it will change reserves because exchange problem
+    # now we scale reservers
+    # we cannot cap big reserves anymore - so we downscale
     if not new_case.within(ctx):
-    
-        low, high = new_case.range
-        zoom = max(high / ctx.max_reserve_limit, 1)
-        if debug:  
-            zoomed_low = low / zoom
-            zoomed_high = high / zoom
-            print(f"original range: {case.range}")
-            print(f"capped range: {low} {high}")
-            print(f"zoomed range: {zoomed_low} {zoomed_high}")
-        new_amount /= zoom
-        for i, _ in enumerate(new_case.reserves):
-            new_case.reserves[i] = [x / zoom for x in new_case.reserves[i]]
-        new_case.scale = [zoom] * new_case.n
-        
-        if debug:
-            print(f"zoomed={new_case.reserves}")
-            print(case)
-            print(new_case)
+        for token, (i, j) in enumerate(case.maximal_reserves):
+            reserve = new_case.reserves[i][j]
+            if reserve > ctx.max_reserve_limit:
+                # risk we make some small arbitrage pools not working
+                scale_mul = ctx.max_reserve_limit / reserve
+                print(f"zooming {token} with {scale_mul} times")
+                for r, tokens in enumerate(new_case.local_indices):
+                    for c, t in enumerate(tokens):
+                        if token == t:
+                            new_case.reserves[r][c] *= scale_mul
+                new_case.scale_mul[token] = scale_mul
+                if token == case.tendered:
+                    new_amount *= scale_mul
+            elif reserve < ctx.min_delta_lambda_limit: 
+                # must use oracle for decision on how to up scale, but not to use oracle as multiplier
+                # basically we can upscale until oracle price is in range
+                print("warning: reserves are too small numerically")
+    if debug:
+        print(f"scale_mul={new_case.scale_mul}")                             
+        print(f"scaled_reserves={new_case.reserves}")                             
     
     return new_case, new_amount
 
@@ -370,46 +358,8 @@ def scale_out(solution_amount: float, scale: list[float], token: int):
     After solution found, we need to scale back to original values.
     Works regardless of what strategy was used to scale down
     """
-    print(scale)
-    return solution_amount * scale[token]
-
-
-from_paper = create_paper_case()
-amounts_from_paper = np.linspace(0, 50)
-
-
-def create_big_case_with_small_pool():
-    return Case(
-        list(range(2)),
-        [[0, 1], [0, 1]],
-        list(
-            map(
-                np.array,
-                [
-                    [10**12, 10**12],
-                    [10**0, 10**6],
-                ],
-            )
-        ),
-        ["Uniswap", "Uniswap"],
-        np.array([0.99, 0.99]),
-        0,
-        1,
-        [1] * 2,
-    )
-
-
-def create_simple_big_case():
-    return Case(
-        list(range(2)),
-        [[0, 1]],
-        list(map(np.array, [[10**18, 10**13]])),
-        ["Uniswap"],
-        np.array([0.99]),
-        0,
-        1,
-        [1] * 2,
-    )
+    print(f"scale={scale} solution={solution_amount} scaled={solution_amount / scale[token]}")
+    return solution_amount / scale[token]
 
 def solve(case: Case, ctx: Ctx, debug : bool = False, force_scale: bool =  False):            
         scaled_case, t = scale_in(case, ctx, debug) if force_scale else (case, ctx.amount)
@@ -469,6 +419,7 @@ def solve(case: Case, ctx: Ctx, debug : bool = False, force_scale: bool =  False
 
         # Set up and solve problem
         prob = cp.Problem(obj, constraints)
+        #  cvxpy.error.SolverError: Solver 'SCIP' failed. Try another solver, or solve with verbose=True for more information.
         prob.solve(verbose=debug, solver=cp.SCIP, scip_params = { 
                                                                 "lp/checkstability" : "1",
                                                                 "lp/checkprimfeas" : "1", # influence feasibility
@@ -481,18 +432,9 @@ def solve(case: Case, ctx: Ctx, debug : bool = False, force_scale: bool =  False
                                                                 # check tolerances
                                                                 })
         if prob.status == cp.INFEASIBLE:
-            raise Exception(f"Problem status {prob.status}")
-
-# Total received value: 89.99919901058979
-# Market 0, delta: [192.13662427 195.64422704], lambda: [191.13662428 204.73513591]
-# Market 1, delta: [204.64006664 196.98209889], lambda: [195.54915791 244.60114519]
-# Market 2, delta: [247.70684589 205.95323482], lambda: [200.08779998 288.59786233]
-# Market 3, delta: [285.89962528 209.50620317], lambda: [203.25499786 298.7122691 ]
-# Market 4, delta: [299.91014253 217.01487672], lambda: [210.7040766  306.93484793]
-# Market 5, delta: [303.98685617 227.04684725], lambda: [214.06688494 317.03883797]
-# Market 6, delta: [310.1101635  236.71611974], lambda: [220.11817277 326.71531875]
-
-        received_amount = scale_out(psi.value[scaled_case.received], scaled_case.scale, scaled_case.received) if force_scale else psi.value[scaled_case.received] 
+            raise Infeasible(f"Problem status {prob.status}")
+        
+        received_amount = scale_out(psi.value[scaled_case.received], scaled_case.scale_mul, scaled_case.received) if force_scale else psi.value[scaled_case.received] 
         if debug:
             print(
                 f"Total received value: {received_amount}"
@@ -500,38 +442,3 @@ def solve(case: Case, ctx: Ctx, debug : bool = False, force_scale: bool =  False
             for i in range(scaled_case.m):
                 print(f"Market {i}, delta: {deltas[i].value}, lambda: {lambdas[i].value}, delta-lambda: {deltas[i].value - lambdas[i].value}")
         return received_amount, deltas, lambdas, scaled_case, t
-
-def create_big_price_range():
-    return Case(
-        list(range(3)),
-        [
-            [0, 1],
-            [1, 2],
-        ],
-        list(map(np.array, [
-            [10**4, 10**12],
-            [10**12, 10**14],
-            ])),
-        ["Uniswap", "Uniswap"],
-        np.array([1.0, 1.0]),
-        0,
-        2,
-        [1] * 3,
-    )
-    
-def test_oracle_big_price_range():
-    case = create_big_price_range()
-    prices = calculate_inner_oracles(case)
-    assert not any(x is None for x in prices)
-    for i, price in enumerate(prices):
-        print("i=price:", i, " ", price, "\n")
-
-def test_solve_simple_big():
-    solve(create_simple_big_case(), [10**3, 10**6])
-    
-def test_solve_big_price_range():
-    solve(create_big_price_range(), [10**3, 10**6])
-        
-
-if __name__ == "__main__":
-    solve()
