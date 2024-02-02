@@ -292,20 +292,17 @@ def test_solve_e2e_cosmos_osmosis():
         [1] * n,
     )
    case = create_cosmos_osmosis()
-   ctx = Ctx(amount = 10**12) # 1 PICA, 10^12 ppica
+   ctx = Ctx(amount = 10**12) # 1 PICA to OSMO
    with pytest.raises(Infeasible):       
      _received = solve(case, ctx, True, False)
    received = solve(case, ctx, True, True)
-   
+   assert received[0] == 10061.628006955732 
    print("===================================== PICA ETH=======================================================")
    case = create_cosmos_osmosis()
    case.received = 3
    ctx = Ctx(amount = 10**12 * 100 * 2000) # 1 ETH in PICA
    received = solve(case, ctx, True, True)
-   
-#    assert received[0] < 10.0
-#    assert 9.99 < received[0]
-
+   assert received[0] == 1.4142474905551775e+18    
 
 def create_big_case_with_small_pool():
     return Case(
