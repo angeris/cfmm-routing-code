@@ -3,6 +3,38 @@ import pytest
 from numerics import Case, Ctx, Infeasible, NoRoute, calculate_inner_oracles,  oracalize_reserves, scale_in, search_routes, solve
 import deepdiff as dd
 
+
+def create_simple_big_case():
+    return Case(
+        list(range(2)),
+        [[0, 1]],
+        list(map(np.array, [[10**18, 10**13]])),
+        ["Uniswap"],
+        np.array([0.99]),
+        0,
+        1,
+        [1] * 2,
+    )
+
+
+def create_big_price_range():
+    return Case(
+        list(range(3)),
+        [
+            [0, 1],
+            [1, 2],
+        ],
+        list(map(np.array, [
+            [10**4, 10**12],
+            [10**12, 10**14],
+            ])),
+        ["Uniswap", "Uniswap"],
+        np.array([1.0, 1.0]),
+        0,
+        2,
+        [1] * 3,
+    )
+    
 def create_no_routes():
     """_summary_
     There are 2 separate pools, but no route between them.
@@ -105,6 +137,52 @@ def test_search_routes_from_paper():
     assert(len(list(filter(lambda x: x[-1][2] == case.received, routes))) == 13)
     assert(routes.index([(0, 3, 2), (2, 0, 1), (1, 2, 2)]) > 0)
     
+    
+
+def create_big_case_with_small_pool():
+    return Case(
+        list(range(2)),
+        [[0, 1], [0, 1]],
+        list(
+            map(
+                np.array,
+                [
+                    [10**12, 10**12],
+                    [10**0, 10**6],
+                ],
+            )
+        ),
+        ["Uniswap", "Uniswap"],
+        np.array([0.99, 0.99]),
+        0,
+        1,
+        [1] * 2,
+    )
+    
+def create_paper_case():
+    return Case(
+        list(range(3)),
+        [[0, 1, 2], [0, 1], [1, 2], [0, 2], [0, 2]],
+        list(
+            map(
+                np.array,
+                [
+                    [3, 0.2, 1],
+                    [10, 1],
+                    [1, 10],
+                    # Note that there is arbitrage in the next two pools:
+                    [20, 50],
+                    [10, 10],
+                ],
+            )
+        ),
+        ["Balancer", "Uniswap", "Uniswap", "Uniswap", "Constant Sum"],
+        np.array([0.98, 0.99, 0.96, 0.97, 0.99]),
+        0,
+        2,
+        [1] * 3,
+    )
+        
 def test_search_routes_when_no():
     case = create_no_routes()
     try:
@@ -234,7 +312,7 @@ def test_case_maximal_reserves_papers():
     assert r[2] == (3, 1)    
     
     
-def _test_scaling_big():
+def test_scale_in_big_cases():
     import deepdiff as dd
 
     case = create_simple_big_case()
@@ -303,83 +381,6 @@ def test_solve_e2e_cosmos_osmosis():
    ctx = Ctx(amount = 10**12 * 100 * 2000) # 1 ETH in PICA
    received = solve(case, ctx, True, True)
    assert received[0] == 1.4142474905551775e+18    
-
-def create_big_case_with_small_pool():
-    return Case(
-        list(range(2)),
-        [[0, 1], [0, 1]],
-        list(
-            map(
-                np.array,
-                [
-                    [10**12, 10**12],
-                    [10**0, 10**6],
-                ],
-            )
-        ),
-        ["Uniswap", "Uniswap"],
-        np.array([0.99, 0.99]),
-        0,
-        1,
-        [1] * 2,
-    )
-    
-def create_paper_case():
-    return Case(
-        list(range(3)),
-        [[0, 1, 2], [0, 1], [1, 2], [0, 2], [0, 2]],
-        list(
-            map(
-                np.array,
-                [
-                    [3, 0.2, 1],
-                    [10, 1],
-                    [1, 10],
-                    # Note that there is arbitrage in the next two pools:
-                    [20, 50],
-                    [10, 10],
-                ],
-            )
-        ),
-        ["Balancer", "Uniswap", "Uniswap", "Uniswap", "Constant Sum"],
-        np.array([0.98, 0.99, 0.96, 0.97, 0.99]),
-        0,
-        2,
-        [1] * 3,
-    )
-    
-
-
-def create_simple_big_case():
-    return Case(
-        list(range(2)),
-        [[0, 1]],
-        list(map(np.array, [[10**18, 10**13]])),
-        ["Uniswap"],
-        np.array([0.99]),
-        0,
-        1,
-        [1] * 2,
-    )
-
-
-def create_big_price_range():
-    return Case(
-        list(range(3)),
-        [
-            [0, 1],
-            [1, 2],
-        ],
-        list(map(np.array, [
-            [10**4, 10**12],
-            [10**12, 10**14],
-            ])),
-        ["Uniswap", "Uniswap"],
-        np.array([1.0, 1.0]),
-        0,
-        2,
-        [1] * 3,
-    )
     
 def test_oracle_big_price_range():
     case = create_big_price_range()

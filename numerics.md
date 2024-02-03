@@ -41,7 +41,7 @@ Alternative is using external oracle not discussed here, because:
 
 Here is formulation of oracle https://cs.stackexchange.com/questions/165350/optimization-of-value-over-network-flow-from-start-to-end-node-with-constant-fun?noredirect=1&lq=1
 
-**Oracle is never used to find optimal solutions and values, so bad oracle may prevent find some best solutions.**
+**Oracle is never used to find optimal solutions and values, but bad oracle may prevent find some best solutions.**
 
 `oracalized value` - amount of some token expressed in price to tendered token, for tendered token it i 1.0
 
@@ -57,7 +57,7 @@ we just cap reserves in all big venues up to limit.
 
 Here we okey with sloppy oracle, not precise with big mistake.
 
-Assumes that pools disbalance in big pools is small.
+Assumes big pool are near optimal.
 
 ### Eliminate small pools
 
