@@ -1,5 +1,22 @@
 # Problem
 
+ Reserves and amounts can be big and/or small
+ Thats leads to numeric infeasibility. Try to run two-assets.py with big numbers.
+ We should scale in amounts and scale out.
+ There are are two approaches:
+ - find out reason of infeasibility and tune relevant constraints/parameter
+ - scale in using raw limits, cap reservers against small tendered, and scaling in using oracle (including inner)
+ This solution going second way.
+ For more context this overview is nice https://www.youtube.com/watch?v=hYBAqcx0H18
+ If solver fails, can try scale one or more times.
+ Amid external vs internal oracle:
+ - Internal oracle proves there is path at all
+ - Internal oracle shows price for route, not price outside on some CEX, which is more correct
+ - Internal oracle harder to attack/manipulate
+ 
+ So using internal oracle is here.
+
+
 Solver engines fail to find optimal solutions, often with error infeasible, for real blockchain quantities.
 
 There are several approaches to handles that:
