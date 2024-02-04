@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from numerics import Case, Ctx, Infeasible, NoRoute, calculate_inner_oracles,  oracalize_reserves, scale_in, search_routes, solve
+from numerics import Case, Ctx, Infeasible, NoRoute, calculate_inner_oracles,  oracalize_reserves, scale_in, scale_out, search_routes, solve
 import deepdiff as dd
 
 
@@ -255,12 +255,13 @@ def test_scale_in_single_stable_pool():
     assert new_amount == ctx.amount
     assert new_case == case
     
-def test_scale_in_long_route_tight_limits_fits():
+def test_scale_in_long_route_tight_limits_final_too_small():
     case = create_long_route()
     ctx = Ctx(amount = 1, max_range_decimals=4, max_limit_decimals=3)
     new_case, new_amount = scale_in(case, ctx, debug = True)    
-    assert not any(x == 0 for row in new_case.reserves for x in row)
     assert new_amount == ctx.amount
+    assert new_case.reserves[-1][0] == 0
+    assert new_case.reserves[-1][1] == 0
     
 def test_solve_single_stable_10x_pools():
     case = create_single_stable_10x_pools()
@@ -278,28 +279,37 @@ def test_scale_in_long_route_tight_limits_reverse():
     case = create_long_route()
     case.received = 0
     case.tendered = 7
-    new_case, new_amount = scale_in(1, case, debug = True, max_range_decimals= 4, max_reserve_limit_decimals= 3)    
+    ctx = Ctx(amount = 1)
+    ctx.max_range_decimals= 4
+    ctx.max_limit_decimals = 3
+    new_case, new_amount = scale_in(case,ctx, debug = True, )    
     print(new_case)    
     print(new_amount)    
     
 def test_scale_in_single_stable_huge_pool():
     case = create_single_stable_huge_pool()
-    new_case, new_amount = scale_in(1, case, debug = True)
+    ctx = Ctx(amount = 1)
+    new_case, new_amount = scale_in(case,ctx, debug = True)
     new_case.reserves[0][0] < case.reserves[0][0]
     new_case.reserves[0][1] < case.reserves[0][1]
     assert new_case.scale_mul[0] == 1
     assert new_amount == 1
         
 def test_scale_in_single_stable_pool_bigger_than_reservers():
+    """
+    Tendered amount input is bigger than maximal reservers in pool with equal amount of tendered and received assets
+    """
     case = create_single_stable_pool()
-    new_case, new_amount = scale_in(10**8, case, debug = True)
+    ctx = Ctx(amount = 10**8)
+    new_case, new_amount = scale_in(case, ctx, debug = True)
     assert new_case.scale_mul[case.tendered] == 1
-    assert new_amount < 10**8
+    assert new_amount == 10**8
     
 def test_scale_in_when_there_is_none():
     case = create_paper_case()
     amount = 5
-    new_case, new_amount = scale_in(amount, case)
+    
+    new_case, new_amount = scale_in(case, Ctx(amount))
     r = dd.DeepDiff(case, new_case, ignore_order=False)
     assert len(r.items()) == 0    
     assert amount == new_amount    
@@ -318,7 +328,9 @@ def test_scale_in_big_cases():
     case = create_simple_big_case()
 
     def check(case, amount, changed_pool, changed_amount, range=10**12):
-        new_case, new_amount = scale_in(amount, case, range)
+        ctx = Ctx(amount=amount)
+        ctx.max_range_decimals = range
+        new_case, new_amount = scale_in(case, ctx)
         r = dd.DeepDiff(case, new_case, ignore_order=False)
         if changed_pool:
             print(r.items())

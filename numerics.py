@@ -6,6 +6,7 @@ See tests_numerics.py to see of relevant numeric range are covered.
 import copy
 from dataclasses import dataclass
 import functools
+import math
 import numpy as np
 import cvxpy as cp
 
@@ -27,7 +28,7 @@ def maximal_reserves(n, local_indices, reserves) -> list[tuple[int, int]]:
 @dataclass(
     init=True,
     repr=True,
-    frozen=True,
+    frozen=False,
 )
 class Ctx:
     amount: int
@@ -36,6 +37,10 @@ class Ctx:
     """
 
     max_limit_decimals: int = 8
+    """
+    10**N of this is maxima numeric value for reserves
+    """
+    
     max_range_decimals: int = 12
     min_swapped_ratio: float = 0.0001
     """
@@ -131,9 +136,8 @@ class Case:
         assert high > 0
         return (low, high)
 
-    def within(self, ctx: Ctx):
+    def under(self, ctx: Ctx):
         high = max(x for row in self.reserves for x in row)
-        low = min(x for row in self.reserves for x in row if x != 0)
         return high <= ctx.max_limit_decimals
 
 
@@ -199,7 +203,7 @@ def calculate_inner_oracles(case: Case, debug: bool = False) -> list[float | Non
     routes = search_routes(case, 10, debug)
     if debug:
         print(routes)
-    oracles: list[float | None] = [None] * case.n
+    oracles: list[float] = [math.inf] * case.n
     for i, _o in enumerate(oracles):
         if i == case.tendered:
             oracles[i] = 1.0
@@ -237,7 +241,7 @@ def calculate_inner_oracles(case: Case, debug: bool = False) -> list[float | Non
             if total_issuance > 0:
                 oracles[i] = price_normalized_total_issuance / total_issuance
             elif debug:
-                print("warning: oracle is none")
+                print("warning: oracle no found")
 
     return oracles
 
@@ -319,7 +323,7 @@ def scale_in(
 
     # now we scale reservers
     # we cannot cap big reserves anymore - so we downscale
-    if not new_case.within(ctx):
+    if not new_case.under(ctx):
         for token, (i, j) in enumerate(case.maximal_reserves):
             reserve = new_case.reserves[i][j]
             if reserve > ctx.max_reserve_limit:
