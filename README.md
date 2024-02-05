@@ -1,6 +1,6 @@
 # CFMM Optimal Routing
 This repository contains the code needed to generate the figures used in the paper
-[Optimal Routing for Constant Function Market Makers](https://stanford.edu/~guillean/papers/cfmm-routing.pdf).
+[Optimal Routing for Constant Function Market Makers](https://arxiv.org/abs/2204.05238).
 
 ## Requirements
 The requirements for running these examples are:
