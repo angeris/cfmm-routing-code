@@ -149,6 +149,10 @@ class Infeasible(BaseException):
     pass
 
 
+class InternalSolverError(BaseException):
+    def _init(self, inner: BaseException, *args: object):
+        super.__init__(self, inner, *args)
+
 def search_routes(
     case: Case, max_depth: int = 10, debug: bool = True
 ) -> list[list[tuple[int, int, int]]]:
@@ -282,13 +286,16 @@ def scale_in(
         new_case.n, new_case.local_indices, oracalized_reserves
     )
 
+    predicted_received = new_amount* oracles[new_case.received]
     if debug:
         print("==================reserves===================")
         print(f"original={new_case.reserves}")
         print(f"oracalized={oracalized_reserves}")
         print(f"oracles={oracles}")
-        print(f"predicted={new_amount* oracles[new_case.received]}")
+        print(f"predicted_received={predicted_received}")
         print(f"max_oracalized_reserves={max_oracalized_reserves}")
+    if predicted_received < 1:
+        print("warning: predicted received is less than integer one, may not work")
 
     # cap big reserves relative to our input using oracle comparison
     # oracle can be sloppy if we relax limit enough
@@ -378,7 +385,6 @@ def scale_out(solution_amount: float, scale: list[float], token: int):
 
 def solve(case: Case, ctx: Ctx, debug: bool = False, force_scale: bool = False):
     scaled_case, t = scale_in(case, ctx, debug) if force_scale else (case, ctx.amount)
-
     current_assets = np.full(scaled_case.n, 0)
     current_assets[scaled_case.tendered] = t
 
@@ -438,22 +444,26 @@ def solve(case: Case, ctx: Ctx, debug: bool = False, force_scale: bool = False):
 
     # Set up and solve problem
     prob = cp.Problem(obj, constraints)
+    try:
+        prob.solve(
+            verbose=debug,
+            solver=cp.SCIP,
+            scip_params={
+                "lp/checkstability": "1",
+                "lp/checkprimfeas": "1",  # influence feasibility
+                "lp/scaling": "1",
+                # lp/checkdualfeas = TRUE
+                # lp/presolving = TRUE
+                # lp/threads = 0
+                # nlp/solver = ""
+                # nlp/disable = FALSE
+                # check tolerances
+            },
+        )
+    
     #  cvxpy.error.SolverError: Solver 'SCIP' failed. Try another solver, or solve with verbose=True for more information.
-    prob.solve(
-        verbose=debug,
-        solver=cp.SCIP,
-        scip_params={
-            "lp/checkstability": "1",
-            "lp/checkprimfeas": "1",  # influence feasibility
-            "lp/scaling": "1",
-            # lp/checkdualfeas = TRUE
-            # lp/presolving = TRUE
-            # lp/threads = 0
-            # nlp/solver = ""
-            # nlp/disable = FALSE
-            # check tolerances
-        },
-    )
+    except cp.SolverError as e:
+        raise InternalSolverError(e, "Solver failed")
     if prob.status == cp.INFEASIBLE:
         raise Infeasible(f"Problem status {prob.status}")
 

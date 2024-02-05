@@ -1,10 +1,10 @@
 import numpy as np
 import pytest
-from numerics import Case, Ctx, Infeasible, NoRoute, calculate_inner_oracles,  oracalize_reserves, scale_in, scale_out, search_routes, solve
+from numerics import Case, Ctx, Infeasible, InternalSolverError, NoRoute, calculate_inner_oracles,  oracalize_reserves, scale_in, scale_out, search_routes, solve
 import deepdiff as dd
 
 
-def create_simple_big_case():
+def create_simple_single_big_pool():
     return Case(
         list(range(2)),
         [[0, 1]],
@@ -273,7 +273,7 @@ def test_solve_single_stable_10x_pools():
 def test_solve_long_route_tight_limits_fits():
     case = create_long_route()
     ctx = Ctx(amount = 1, max_range_decimals=4, max_limit_decimals=3)
-    solution, _ = solve(case, ctx, True)
+    solution = solve(case, ctx, True)
     
 def test_scale_in_long_route_tight_limits_reverse():
     case = create_long_route()
@@ -325,7 +325,7 @@ def test_case_maximal_reserves_papers():
 def test_scale_in_big_cases():
     import deepdiff as dd
 
-    case = create_simple_big_case()
+    case = create_simple_single_big_pool()
 
     def check(case, amount, changed_pool, changed_amount, range=10**12):
         ctx = Ctx(amount=amount)
@@ -402,7 +402,11 @@ def test_oracle_big_price_range():
         print("i=price:", i, " ", price, "\n")
 
 def test_solve_simple_big():
-    solve(create_simple_big_case(), [10**3, 10**6])
+    solve(create_simple_single_big_pool(), Ctx(amount = 10**6), force_scale=True)    
+    # in this case 10**3 from 10**18 pool swapped to 10**13 pool
+    with pytest.raises(InternalSolverError):
+      solve(create_simple_single_big_pool(), Ctx(amount = 10**3), debug= True, force_scale=True)
     
 def test_solve_big_price_range():
-    solve(create_big_price_range(), [10**3, 10**6])
+    solve(create_big_price_range(), Ctx(amount = 10**3), force_scale=True)
+    solve(create_big_price_range(), Ctx(amount = 10**6), force_scale=True)    
