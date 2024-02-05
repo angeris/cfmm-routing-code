@@ -403,7 +403,14 @@ def test_oracle_big_price_range():
 
 def test_solve_simple_big():
     solve(create_simple_single_big_pool(), Ctx(amount = 10**6), force_scale=True)    
-    # in this case 10**3 from 10**18 pool swapped to 10**13 pool
+    def simulate_univ2(input, a,b):
+        C = a * b
+        output = b -  C/(a + input)
+        return output
+    result = simulate_univ2(10**3, 10**18, 10**13)
+    
+    # final numeric value is less than integer 1, but larger than oracle mistake allowed
+    assert result == 0.009765625
     with pytest.raises(InternalSolverError):
       solve(create_simple_single_big_pool(), Ctx(amount = 10**3), debug= True, force_scale=True)
     
