@@ -23,15 +23,17 @@ Also can run solver with different numeric fixes concurrently and see what works
 
 Here is proposed algorithm for this approach.
 
-**This algorithm better to run with range of inputs if purpose is to seek arbitrage**.
+**This algorithm better to run several times on range of inputs if purpose is to seek arbitrage**.
 
 ### Find sloppy inner oracle
 
-We can run forward only algorithm of depth N from start token to target token.
+We can run forward only algorithm of depth N from start token to any other token.
 
-Oracle is built using inverse length, direct reserver weighting averaging across all venues.
+Oracle is built using inverse length, direct reserves weighting averaging across all venues reaching same token.
 
-So inner oracle accounts for price along possible routes.
+Assumes big pool are near optimal.
+
+So inner oracle accounts for price along possible reachable routes.
 
 Alternative is using external oracle not discussed here, because:  
 
@@ -43,21 +45,21 @@ Here is formulation of oracle https://cs.stackexchange.com/questions/165350/opti
 
 **Oracle is never used to find optimal solutions and values, but bad oracle may prevent find some best solutions.**
 
-`oracalized value` - amount of some token expressed in price to tendered token, for tendered token it i 1.0
+`oracalized value` - amount of some token expressed in price to tendered token, for tendered token it is `1.0`
+
+`sloppy oracle` - oracle which mistakes price up to sum multiplier under 100x
 
 ### Cap big pools
 
-So we know relative price on tendered asset to reservers.
+So we know relative price of tendered asset to reserves and constant fees.
 
 Assuming that slippage (change in settlement price induced by settlements along the routes)
 
-is negatable if reserver much more bigger,
+is neglectable if reserves much more bigger,
 
 we just cap reserves in all big venues up to limit.
 
-Here we okey with sloppy oracle, not precise with big mistake.
-
-Assumes big pool are near optimal.
+Here we OK with sloppy oracle.
 
 ### Eliminate small pools
 
@@ -69,18 +71,17 @@ Sloppy oracle is ok here too.
 
 ### Zoom
 
-Zoom all numbers to fit biggest pool of each token into range.
+Zoom all numbers to fit biggest pool of each each token into range.
 
-If there is token reservers with maximal amount to be small amount,
-upscale all reservers of it until maximal oracalized value is in allowed numeric range.s
+#### Scale down big reserves tokens
 
-### (Optional) Scale up important tokens
+If some numerically big reserves exists, scale down all reservers of that token to fit numeric limit.
 
-Detect small reservers in some venues.
- 
-Scale up these by some factor in all venues.
+#### Scale up these by some factor in all venues
 
-If largest reserver will not be upper than limit, retain rescale.
+Detect numerically small reserves in some venues.
+
+Upscale all reserves of that token until it limits oracalized value.
 
 So we try to make some small numeric important tokens bigger.
 

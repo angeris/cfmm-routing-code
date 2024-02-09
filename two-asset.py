@@ -24,7 +24,7 @@ reserves = list(map(np.array, [
 ]))
 
 fees = np.array([
-    .98,
+    .98, # takes 0.2% of the received X_j; A 100 -> B -> C -> A: 105 -> D
     .99,
     .96,
     .97,
